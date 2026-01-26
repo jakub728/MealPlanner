@@ -5,7 +5,7 @@ import { checkToken } from "../middleware/checkToken.js"
 
 const router = Router()
 
-//! GET Ingredient
+//! GET Ingredients
 //http://localhost:7777/api/ingredients/get
 router.get('/get', async(req: Request, res: Response, next: NextFunction)=>{
     try {
@@ -46,10 +46,29 @@ router.post('/add', checkToken, async(req: Request, res: Response, next: NextFun
 })
 
 //! PATCH Ingredient
-//http://localhost:7777/api/ingredients/edit
-router.patch('/edit', async(req: Request, res: Response, next: NextFunction)=>{
+//http://localhost:7777/api/ingredients/edit:id
+router.patch('/edit/:id', async(req: Request, res: Response, next: NextFunction)=>{
     try {
+        const { id } = req.params;
         
+        const validatedData = IngredientSchema.partial().parse(req.body);
+
+        const updatedIngredient = await Ingredient.findByIdAndUpdate(
+            id, 
+            {$set: validatedData}, 
+            {new: true, runValidators: true}
+        );
+
+        if (!updatedIngredient) {
+            return next({
+                status: 404,
+                message: "No ingridient found"
+            })
+        }
+        res.status(200).json({
+            message: "Nutrition updated successfully",
+            ingredient: updatedIngredient
+        });
     } catch (error: any) {
         console.error("PATCH /edit error:", error)
         next(error)
