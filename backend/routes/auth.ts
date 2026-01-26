@@ -1,9 +1,10 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken'
+import crypto from 'node:crypto';
 import User, { UserRegistrationSchema } from '../models/UserModel.js';
 import { checkToken } from '../middleware/checkToken.js';
-
+import { sendVerificationEmail } from '../utilities/verificationEmail.js';
 
 const router = Router();
 
@@ -32,28 +33,55 @@ router.post('/register', async (req: Request, res: Response, next: NextFunction)
     try {
         const validatedData = UserRegistrationSchema.parse(req.body);
 
-        const { name, email, password } = validatedData;
-
-        const userExists = await User.findOne({ email });
+        const userExists = await User.findOne({ email: validatedData.email });
         if (userExists) {
             return next({ status: 400, message: "User with this email already exists" });
         }
 
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(validatedData.password, salt);
+
+        const verificationToken = crypto.randomBytes(32).toString('hex');
 
         const newUser = new User({
-            name,
-            email,
-            password: hashedPassword
+            ...validatedData,
+            password: hashedPassword,
+            verificationToken,
+            verified: false
         });
 
         await newUser.save();
-        res.status(201).json({ message: "User created successfully" });
+
+        sendVerificationEmail(newUser.email, verificationToken).catch(console.error);
+
+        res.status(201).json({ message: "User registered! Please check your email to verify account" });
     } catch (error: any) {
         next(error)
     }
 });
+
+//! GET Verify Token
+//http://localhost:7777/api/auth/verify/:token
+router.get('/verify/:token', async (req, res, next) => {
+    try {
+        const { token } = req.params;
+
+        const user = await User.findOne({ verificationToken: token });
+
+        if (!user) {
+            return next({ status: 400, message: "Invalid or expired token" });
+        }
+
+        user.verified = true;
+        user.verificationToken = ""; 
+        await user.save();
+
+        res.status(200).send("<h1>Email verified successfully! You can now log in.</h1>");
+    } catch (error) {
+        next(error);
+    }
+});
+
 
 
 //! POST Login

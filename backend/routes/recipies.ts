@@ -42,3 +42,5 @@ router.post('/add', checkToken, async(req: Request, res: Response, next: NextFun
         next(error)
     }
 })
+
+export default router

@@ -14,6 +14,7 @@ import { connectDB } from "./utilities/connectDB.js";
 //?ROUTES
 import AuthRoute from "./routes/auth.js"
 import IngriedientRoute from "./routes/ingredients.js"
+import RecipeRouter from "./routes/recipies.js"
 
 
 dotenv.config()
@@ -32,7 +33,7 @@ app.use(cors())
 //!ROUTES
 app.use("/api/auth", AuthRoute)
 app.use("/api/ingredients", IngriedientRoute)
-app.use
+app.use("/api/recipes", RecipeRouter)
 
 //!GLOBAL ERROR
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

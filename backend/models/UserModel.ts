@@ -31,7 +31,9 @@ export interface IUser extends Document {
   friends:  Types.ObjectId[];
 
   verified: boolean;
+  verificationToken: string;
   createdAt: Date;
+  expireAt: Date;
 }
 
 const userSchema = new Schema<IUser>({
@@ -45,7 +47,8 @@ const userSchema = new Schema<IUser>({
   friends_requested: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
 
-  verified: { type: Boolean, default: false }
+  verified: { type: Boolean, default: false },
+  verificationToken: {type: String}
   }, { 
   timestamps: true
   });
