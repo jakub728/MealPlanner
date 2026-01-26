@@ -1,18 +1,18 @@
-import nodemailer from 'nodemailer'
+import nodemailer from "nodemailer";
 
 export const sendVerificationEmail = async (email: string, token: string) => {
   const transporter = nodemailer.createTransport({
-    service: 'gmail', 
+    service: "gmail",
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS, 
+      pass: process.env.EMAIL_PASS,
     },
   });
 
   const url = `http://localhost:7777/api/auth/verify/${token}`;
 
   await transporter.sendMail({
-    from: '"MealPlanner" <noreply@recipeapp.com>',
+    from: '"MealPlanner" <meal.planner.no.reply.00@gmail.com>',
     to: email,
     subject: "Please verify your email",
     html: `
