@@ -44,6 +44,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="add-recipes"
+        options={{
+          title: "Dodaj",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="plus" size={28} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profil",
