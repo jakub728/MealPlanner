@@ -49,7 +49,43 @@ router.get(
   },
 );
 
-//!POST Recipes
+//!GET Single recipe by ID
+//http://localhost:7777/api/recipies/:id
+router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const recipe = await Recipe.findById(req.params.id)
+      .populate("author", "name")
+      .populate("ingredients.ingredient");
+
+    if (!recipe) {
+      return next({ status: 404, message: "Recipe not found" });
+    }
+
+    const totals = recipe.ingredients.reduce(
+      (acc, item: any) => {
+        const ing = item.ingredient;
+        const factor = item.amount / 100;
+
+        return {
+          calories: acc.calories + ing.calories * factor,
+          protein: acc.protein + ing.protein * factor,
+          carbs: acc.carbs + ing.carbs * factor,
+          fat: acc.fat + ing.fat * factor,
+        };
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    );
+
+    res.status(200).json({
+      recipe,
+      nutritionSummary: totals,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+//!POST Add recipe [recipes_added]
 //http://localhost:7777/api/recipies/add
 router.post(
   "/add",

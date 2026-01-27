@@ -13,7 +13,7 @@ import { sendVerificationEmail } from "../utilities/verificationEmail.js";
 
 const router = Router();
 
-//! GET Me
+//! GET User by id
 //http://localhost:7777/api/auth/me
 router.get(
   "/me",
@@ -112,7 +112,7 @@ router.post(
       const { email, password } = req.body;
 
       const user = await User.findOne({ email });
-      
+
       if (!user) {
         return next({ status: 400, message: "Invalid email or password" });
       }
@@ -149,5 +149,10 @@ router.post(
     }
   },
 );
+
+
+
+
+
 
 export default router;

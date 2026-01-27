@@ -1,7 +1,7 @@
 import { Schema, model, Document, Types } from "mongoose";
 import { z } from "zod";
 
-const UNITS = ["g", "kg", "ml", "l", "sztuka", "łyżeczka", "łyżka"] as const;
+const UNITS = ["g", "ml", "szt", "tbs", "tsp"] as const;
 
 export const RecipeValidationSchema = z.object({
   title: z.string().min(3, "Title is too short").trim(),
