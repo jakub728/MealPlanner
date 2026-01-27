@@ -9,9 +9,7 @@ export const RecipeValidationSchema = z.object({
   ingredients: z
     .array(
       z.object({
-        ingredient: z
-          .string()
-          .regex(/^[0-9a-fA-F]{24}$/, "Invalid Ingredient ID"),
+        name: z.string().min(1, "Name is required"),
         amount: z.number().positive("Amount must be greater than 0"),
         unit: z.enum(UNITS, {
           message: "Invalid unit. Please choose from the allowed list.",
@@ -30,7 +28,7 @@ export interface IRecipe extends Document {
   description: string;
   author: Types.ObjectId;
   ingredients: {
-    ingredient: Types.ObjectId;
+    name: string;
     amount: number;
     unit: (typeof UNITS)[number];
   }[];
@@ -47,11 +45,7 @@ const recipeSchema = new Schema<IRecipe>(
     author: { type: Schema.Types.ObjectId, ref: "User" },
     ingredients: [
       {
-        ingredient: {
-          type: Schema.Types.ObjectId,
-          ref: "Ingredient",
-          required: true,
-        },
+        name: { type: String, required: true },
         amount: { type: Number, required: true },
         unit: { type: String, enum: UNITS, required: true },
       },
