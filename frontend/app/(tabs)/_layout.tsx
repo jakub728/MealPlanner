@@ -1,7 +1,7 @@
 import React from "react";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Link, Tabs } from "expo-router";
-
+import { useAuthStore } from "@/store/useAuthStore";
 import { useColorScheme } from "@/components/useColorScheme";
 
 function TabBarIcon(props: {
@@ -13,9 +13,15 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { token } = useAuthStore((state) => state);
 
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: "#FF6347" }}>
+    <Tabs
+      screenOptions={{
+        tabBarActiveTintColor: "#FF6347",
+        headerShown: false,
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
@@ -26,7 +32,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="public-recipes"
+        name="publicRecipes"
         options={{
           title: "Przepisy",
           tabBarIcon: ({ color }) => (
@@ -35,7 +41,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="my-recipes"
+        name="myRecipes"
         options={{
           title: "Moje",
           tabBarIcon: ({ color }) => (
@@ -44,23 +50,35 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="add-recipes"
+        name="shoppingList"
         options={{
-          title: "Dodaj",
+          title: "Lista",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="plus" size={28} color={color} />
+            <FontAwesome name="shopping-cart" size={28} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profil",
-          tabBarIcon: ({ color }) => (
-            <FontAwesome name="user" size={28} color={color} />
-          ),
-        }}
-      />
+      {token ? (
+        <Tabs.Screen
+          name="myProfile"
+          options={{
+            title: "Profil",
+            tabBarIcon: ({ color }) => (
+              <FontAwesome name="user" size={28} color={color} />
+            ),
+          }}
+        />
+      ) : (
+        <Tabs.Screen
+          name="myProfile"
+          options={{
+            title: "Zaloguj",
+            tabBarIcon: ({ color }) => (
+              <FontAwesome name="sign-in" size={28} color={color} />
+            ),
+          }}
+        />
+      )}
     </Tabs>
   );
 }

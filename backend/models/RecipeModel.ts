@@ -5,7 +5,7 @@ const UNITS = ["g", "ml", "szt", "tbs", "tsp"] as const;
 
 export const RecipeValidationSchema = z.object({
   title: z.string().min(3, "Title is too short").trim(),
-  description: z.string().min(10, "Description is too short"),
+  description: z.string().optional(),
   ingredients: z
     .array(
       z.object({
@@ -20,12 +20,12 @@ export const RecipeValidationSchema = z.object({
   instructions: z
     .array(z.string().min(5, "Instruction step is too short"))
     .min(1, "Recipe must have steps"),
-  imageUrl: z.string().url("Invalid image URL").optional(),
+  // imageUrl: z.string().url("Invalid image URL").optional(),
 });
 
 export interface IRecipe extends Document {
   title: string;
-  description: string;
+  description?: string;
   author: Types.ObjectId;
   ingredients: {
     name: string;
@@ -34,15 +34,15 @@ export interface IRecipe extends Document {
   }[];
   instructions: string[];
   status: "private" | "pending" | "public";
-  imageUrl?: string;
+  // imageUrl?: string;
   createdAt: Date;
 }
 
 const recipeSchema = new Schema<IRecipe>(
   {
     title: { type: String, required: true },
-    description: { type: String, required: true },
     author: { type: Schema.Types.ObjectId, ref: "User" },
+    description: { type: String },
     ingredients: [
       {
         name: { type: String, required: true },

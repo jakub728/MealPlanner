@@ -1,18 +1,12 @@
 import { StyleSheet, Text, View } from "react-native";
-import { useAuthStore } from "@/store/useAuthStore";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function MyRecipesScreen() {
-  const { token } = useAuthStore((state) => state);
-
-    if (!token) {
-        
-    }
-
+export default function PublicRecipesScreen() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Wszystkie recepty</Text>
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.title}>Przepisy innych ludz/ranking/likowania/</Text>
       <View style={styles.separator} />
-    </View>
+    </SafeAreaView>
   );
 }
 

@@ -114,7 +114,7 @@ router.post(
       const user = await User.findOne({ email });
 
       if (!user) {
-        return next({ status: 400, message: "Invalid email or password" });
+        return next({ status: 400, message: "User not found" });
       }
 
       if (!user.verified) {
@@ -149,10 +149,5 @@ router.post(
     }
   },
 );
-
-
-
-
-
 
 export default router;

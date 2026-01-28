@@ -33,6 +33,8 @@ export interface IUser extends Document {
   friends_requested: Types.ObjectId[];
   friends: Types.ObjectId[];
 
+  shopping_list: Types.ObjectId[];
+
   verified: boolean;
   verificationToken: string;
   createdAt: Date;
@@ -56,6 +58,8 @@ const userSchema = new Schema<IUser>(
 
     friends_requested: [{ type: Schema.Types.ObjectId, ref: "User" }],
     friends: [{ type: Schema.Types.ObjectId, ref: "User" }],
+
+    shopping_list: [{ type: Schema.Types.ObjectId, ref: "ShoppingItem" }],
 
     verified: { type: Boolean, default: false },
     verificationToken: { type: String, default: "" },

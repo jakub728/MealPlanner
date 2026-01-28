@@ -28,7 +28,7 @@ router.get(
 );
 
 //!GET Private recipes [recipes_added]
-//http://localhost:7777/api/recipies/private
+//http://localhost:7777/api/recipes/private
 router.get(
   "/private",
   checkToken,
@@ -38,10 +38,10 @@ router.get(
         return next({ status: 401, message: "User not authenticated" });
       }
 
-      const recipes = await Recipe.find({ author: req.userId })
-        .populate("author", "name")
-        .populate("ingredients.ingredient");
-
+      const recipes = await Recipe.find({ author: req.userId }).populate(
+        "author",
+        "name",
+      );
       res.status(200).json(recipes);
     } catch (error) {
       next(error);
@@ -53,33 +53,33 @@ router.get(
 //http://localhost:7777/api/recipies/:id
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const recipe = await Recipe.findById(req.params.id)
-      .populate("author", "name")
-      .populate("ingredients.ingredient");
+    const recipe = await Recipe.findById(req.params.id).populate(
+      "author",
+      "name",
+    );
 
     if (!recipe) {
       return next({ status: 404, message: "Recipe not found" });
     }
 
-    const totals = recipe.ingredients.reduce(
-      (acc, item: any) => {
-        const ing = item.ingredient;
-        const factor = item.amount / 100;
+    console.log("Sent: ", recipe);
 
-        return {
-          calories: acc.calories + ing.calories * factor,
-          protein: acc.protein + ing.protein * factor,
-          carbs: acc.carbs + ing.carbs * factor,
-          fat: acc.fat + ing.fat * factor,
-        };
-      },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    );
+    // const totals = recipe.ingredients.reduce(
+    //   (acc, item: any) => {
+    //     const ing = item.ingredient;
+    //     const factor = item.amount / 100;
 
-    res.status(200).json({
-      recipe,
-      nutritionSummary: totals,
-    });
+    //     return {
+    //       calories: acc.calories + ing.calories * factor,
+    //       protein: acc.protein + ing.protein * factor,
+    //       carbs: acc.carbs + ing.carbs * factor,
+    //       fat: acc.fat + ing.fat * factor,
+    //     };
+    //   },
+    //   { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    // );
+
+    res.status(200).json(recipe);
   } catch (error) {
     next(error);
   }

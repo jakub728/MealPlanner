@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  useColorScheme,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -17,6 +20,20 @@ export default function UserLoginRegisterComponent() {
   const [name, setName] = useState("");
 
   const setAuth = useAuthStore((state) => state.setAuth);
+
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+
+  const theme = {
+    bg: isDark ? "#121212" : "#fff",
+    text: isDark ? "#fff" : "#333",
+    subText: isDark ? "#aaa" : "#666",
+    placeholder: isDark ? "#888" : "#aaa",
+    iconBg: isDark ? "rgba(255, 99, 71, 0.15)" : "#FFF5F3",
+  };
 
   const handleAuth = async () => {
     try {
@@ -36,51 +53,81 @@ export default function UserLoginRegisterComponent() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>
-        {isLogin ? "Zaloguj się" : "Stwórz konto"}
-      </Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1, backgroundColor: theme.bg }}
+    >
+      <View style={styles.container}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          {isLogin ? "Zaloguj się" : "Stwórz konto"}
+        </Text>
 
-      {!isLogin && (
+        {!isLogin && (
+          <TextInput
+            style={[
+              styles.input,
+              { backgroundColor: theme.bg, color: theme.text },
+            ]}
+            placeholder="Imię"
+            placeholderTextColor={theme.placeholder}
+            value={name}
+            onChangeText={setName}
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
+          />
+        )}
+
         <TextInput
-          style={styles.input}
-          placeholder="Imię"
-          value={name}
-          onChangeText={setName}
+          ref={emailRef}
+          style={[
+            styles.input,
+            { backgroundColor: theme.bg, color: theme.text },
+          ]}
+          placeholder="Email"
+          placeholderTextColor={theme.placeholder}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={(text) => setEmail(text.toLowerCase())}
+          returnKeyType="next"
+          onSubmitEditing={() => passwordRef.current?.focus()}
         />
-      )}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={(text) => setEmail(text.toLowerCase())}
-      />
+        <TextInput
+          ref={passwordRef}
+          style={[
+            styles.input,
+            { backgroundColor: theme.bg, color: theme.text },
+          ]}
+          placeholder="Hasło"
+          placeholderTextColor={theme.placeholder}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          returnKeyType="go" // Zmienia ikonę na "Idź/Zaloguj"
+          onSubmitEditing={handleAuth}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Hasło"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <TouchableOpacity style={styles.button} onPress={handleAuth}>
+          <Text style={styles.buttonText}>
+            {isLogin ? "Zaloguj" : "Zarejestruj"}
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={handleAuth}>
-        <Text style={styles.buttonText}>
-          {isLogin ? "Zaloguj" : "Zarejestruj"}
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-        <Text style={styles.switchText}>
-          {isLogin
-            ? "Nie masz konta? Zarejestruj się"
-            : "Masz już konto? Zaloguj się"}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+          <Text style={styles.switchText}>
+            {isLogin
+              ? "Nie masz konta? Zarejestruj się"
+              : "Masz już konto? Zaloguj się"}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
+          <Text style={styles.switchText}>
+            {isLogin && "Zapomniałeś hasła? Zresetuj"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

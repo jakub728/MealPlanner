@@ -3,6 +3,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import UserProfileComponent from "@/components/User/UserProfileComponent";
 import UserLoginRegisterComponent from "@/components/User/UserLoginRegister";
 
+
+
 export default function ProfileScreen() {
   const { token } = useAuthStore((state) => state); //token
 
