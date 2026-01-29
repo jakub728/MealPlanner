@@ -5,16 +5,17 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { ZodError } from "zod";
 
-//?MIDDLEWARE
-
-//?UTILLITIES
+//?UTILITIES
 import { connectDB } from "./utilities/connectDB.js";
 
 //?ROUTES
 import AuthRoute from "./routes/auth.js";
 import IngredientRoute from "./routes/ingredients.js";
 import RecipeRouter from "./routes/recipies.js";
+import CalendarRouter from "./routes/calendar.js";
+import ShoppingRouter from "./routes/shopping.js";
 
+//?APP CONFIGURATION
 dotenv.config();
 await connectDB();
 const app = express();
@@ -24,6 +25,7 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+//?MIDDLEWARE
 app.use(express.json());
 app.use(cors());
 
@@ -31,6 +33,8 @@ app.use(cors());
 app.use("/api/auth", AuthRoute);
 app.use("/api/ingredients", IngredientRoute);
 app.use("/api/recipes", RecipeRouter);
+app.use("/api/calendar", CalendarRouter);
+app.use("/api/shopping", ShoppingRouter);
 
 //!GLOBAL ERROR
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

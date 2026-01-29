@@ -7,28 +7,33 @@ import {
   useColorScheme,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons"; // Dostępne w standardzie Expo
+import { Ionicons } from "@expo/vector-icons";
+import Colors from "@/constants/Colors";
 
 export default function LoginFirst({ placeholder }: { placeholder?: string }) {
   const router = useRouter();
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? "light";
+  const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
 
-  const theme = {
-    bg: isDark ? "#121212" : "#fff",
-    text: isDark ? "#fff" : "#333",
-    subText: isDark ? "#aaa" : "#666",
-    iconBg: isDark ? "rgba(255, 99, 71, 0.15)" : "#FFF5F3", // Delikatne tło dla ikony
-  };
-
   return (
-    <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      <View style={[styles.iconContainer, { backgroundColor: theme.iconBg }]}>
-        <Ionicons name="lock-closed-outline" size={80} color="#FF6347" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.iconContainer,
+          { backgroundColor: isDark ? "rgba(255, 99, 71, 0.1)" : "#FFF5F3" },
+        ]}
+      >
+        <Ionicons
+          name="lock-closed-outline"
+          style={{ borderRadius: 50 }}
+          size={80}
+          color="#FF6347"
+        />
       </View>
 
-      <Text style={[styles.description, { color: theme.subText }]}>
-        Musisz być zalogowany{placeholder}
+      <Text style={[styles.description, { color: theme.text }]}>
+        Zaloguj się{placeholder}
       </Text>
 
       <TouchableOpacity
@@ -41,8 +46,7 @@ export default function LoginFirst({ placeholder }: { placeholder?: string }) {
       <TouchableOpacity
         style={styles.secondaryButton}
         onPress={() => router.push("/")}
-      >
-      </TouchableOpacity>
+      ></TouchableOpacity>
     </View>
   );
 }
@@ -59,27 +63,21 @@ const styles = StyleSheet.create({
     padding: 30,
     borderRadius: 100,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 10,
-    textAlign: "center",
-  },
   description: {
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
     lineHeight: 24,
     marginBottom: 30,
+    fontWeight: "500",
   },
   button: {
     backgroundColor: "#FF6347",
     paddingVertical: 15,
     paddingHorizontal: 40,
-    borderRadius: 10,
+    borderRadius: 12,
     width: "100%",
     alignItems: "center",
+    // Cień dopasowany do koloru marki
     shadowColor: "#FF6347",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -96,7 +94,6 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   secondaryButtonText: {
-    color: "#888",
     fontSize: 14,
     textDecorationLine: "underline",
   },

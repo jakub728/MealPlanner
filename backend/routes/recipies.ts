@@ -62,8 +62,6 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       return next({ status: 404, message: "Recipe not found" });
     }
 
-    console.log("Sent: ", recipe);
-
     // const totals = recipe.ingredients.reduce(
     //   (acc, item: any) => {
     //     const ing = item.ingredient;
@@ -114,5 +112,43 @@ router.post(
     }
   },
 );
+
+//!DELETE Recipe by ID
+//http://localhost:7777/api/recipies/:id
+router.delete(
+  "/:id",
+  checkToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return next({ status: 401, message: "User not authenticated" });
+      }
+
+      const recipe = await Recipe.findById(req.params.id);
+
+      if (!recipe) {
+        return next({ status: 404, message: "Recipe not found" });
+      }
+
+      if (recipe.author.toString() !== req.userId) {
+        return next({
+          status: 403,
+          message: "Not authorized to delete this recipe",
+        });
+      }
+
+      await Recipe.findByIdAndDelete(req.params.id);
+
+      await UserModel.findByIdAndUpdate(req.userId, {
+        $pull: { recipes_added: req.params.id },
+      });
+      res.status(200).json({ message: "Recipe deleted successfully" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+
 
 export default router;

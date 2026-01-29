@@ -7,18 +7,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  useColorScheme,
 } from "react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 import LoginFirst from "@/components/loginFirst";
+import { useColorScheme } from "@/components/useColorScheme";
 
 const UNITS = ["g", "ml", "szt", "tbs", "tsp"];
 
 export default function AddRecipesScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [switchDescription, setSwitchDescription] = useState(false);
 
   const [instructionsList, setInstructionsList] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState("");
@@ -38,13 +39,11 @@ export default function AddRecipesScreen() {
   const theme = {
     bg: isDark ? "#121212" : "#F8F9FA",
     cardBg: isDark ? "#1E1E1E" : "#fff",
-    headerBg: isDark ? "#121212" : "#fff",
     text: isDark ? "#fff" : "#333",
-    subText: isDark ? "#aaa" : "#888",
-    description: isDark ? "#ccc" : "#666",
-    tagBg: isDark ? "rgba(255, 99, 71, 0.15)" : "#FFF5F3",
-    border: isDark ? "#333" : "#eee",
-    emptyIcon: isDark ? "#333" : "#eee",
+    inputBg: isDark ? "#2A2A2A" : "#fff",
+    inputBorder: isDark ? "#444" : "#ddd",
+    placeholder: isDark ? "#888" : "#aaa",
+    sectionBg: isDark ? "#1E1E1E" : "#f8f9fa",
   };
 
   // 1. ADD INGREDIENT
@@ -120,45 +119,127 @@ export default function AddRecipesScreen() {
   if (!token) return <LoginFirst />;
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Dodaj nowy przepis</Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.bg }]}>
+      <Text style={[styles.header, { color: theme.text }]}>
+        Dodaj nowy przepis
+      </Text>
 
       <TextInput
-        style={styles.input}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.inputBg,
+            borderColor: theme.inputBorder,
+            color: theme.text,
+          },
+        ]}
         placeholder="Tytuł"
+        placeholderTextColor={theme.placeholder}
         value={title}
         onChangeText={setTitle}
       />
-      <TextInput
-        style={[styles.input, { height: 60 }]}
-        placeholder="Opis"
-        multiline
-        value={description}
-        onChangeText={setDescription}
-      />
+
+      {/* PRZYCISK OPISU - Logika poprawiona */}
+      {!switchDescription ? (
+        <TouchableOpacity
+          style={[
+            styles.input,
+            {
+              backgroundColor: theme.inputBg,
+              borderColor: theme.inputBorder,
+              justifyContent: "center",
+              borderStyle: "dashed",
+            },
+          ]}
+          onPress={() => setSwitchDescription(true)}
+        >
+          <Text
+            style={{
+              color: "#FF6347",
+              fontWeight: "bold",
+              textAlign: "center",
+            }}
+          >
+            + Dodaj opis (opcjonalnie)
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        <TextInput
+          style={[
+            styles.input,
+            {
+              height: 80,
+              backgroundColor: theme.inputBg,
+              borderColor: theme.inputBorder,
+              color: theme.text,
+            },
+          ]}
+          placeholder="Opis przepisu..."
+          placeholderTextColor={theme.placeholder}
+          multiline
+          autoFocus
+          value={description}
+          onChangeText={setDescription}
+        />
+      )}
 
       {/* SEKCJA SKŁADNIKÓW */}
-      <View style={[styles.section, { zIndex: 10 }]}>
-        <Text style={styles.label}>Składniki:</Text>
+      <View
+        style={[
+          styles.section,
+          {
+            backgroundColor: theme.sectionBg,
+            borderColor: theme.inputBorder,
+            zIndex: 10,
+          },
+        ]}
+      >
+        <Text style={[styles.label, { color: theme.text }]}>Składniki:</Text>
         <View style={styles.row}>
           <TextInput
-            style={[styles.input, { flex: 2, marginBottom: 0 }]}
+            style={[
+              styles.input,
+              {
+                flex: 2,
+                marginBottom: 0,
+                backgroundColor: theme.inputBg,
+                borderColor: theme.inputBorder,
+                color: theme.text,
+              },
+            ]}
             placeholder="Nazwa"
+            placeholderTextColor={theme.placeholder}
             value={ingredientName}
             onChangeText={setIngredientName}
           />
           <TextInput
-            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            style={[
+              styles.input,
+              {
+                flex: 1,
+                marginBottom: 0,
+                backgroundColor: theme.inputBg,
+                borderColor: theme.inputBorder,
+                color: theme.text,
+              },
+            ]}
             placeholder="Ilość"
+            placeholderTextColor={theme.placeholder}
             keyboardType="numeric"
             value={amount}
             onChangeText={setAmount}
           />
           <TouchableOpacity
-            style={styles.unitButton}
+            style={[
+              styles.unitButton,
+              {
+                backgroundColor: theme.inputBg,
+                borderColor: theme.inputBorder,
+              },
+            ]}
             onPress={() => setShowUnits(!showUnits)}
           >
-            <Text style={[styles.unitButtonText, { marginBottom: 0 }]}>
+            <Text style={[styles.unitButtonText, { color: theme.text }]}>
               {unit}
             </Text>
           </TouchableOpacity>
@@ -169,25 +250,38 @@ export default function AddRecipesScreen() {
             <Text style={{ color: "white", fontWeight: "bold" }}>+</Text>
           </TouchableOpacity>
         </View>
+
         {showUnits && (
-          <View style={styles.unitsDropdown}>
+          <View
+            style={[
+              styles.unitsDropdown,
+              { backgroundColor: theme.cardBg, borderColor: theme.inputBorder },
+            ]}
+          >
             {UNITS.map((u) => (
               <TouchableOpacity
                 key={u}
-                style={styles.unitItem}
+                style={[
+                  styles.unitItem,
+                  { borderBottomColor: theme.inputBorder },
+                ]}
                 onPress={() => {
                   setUnit(u);
                   setShowUnits(false);
                 }}
               >
-                <Text>{u}</Text>
+                <Text style={{ color: theme.text }}>{u}</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
+
         {selectedIngredients.map((item, index) => (
-          <View key={index} style={styles.addedItem}>
-            <Text>
+          <View
+            key={index}
+            style={[styles.addedItem, { borderBottomColor: theme.inputBorder }]}
+          >
+            <Text style={{ color: theme.text }}>
               • {item.name} ({item.amount}
               {item.unit})
             </Text>
@@ -198,19 +292,36 @@ export default function AddRecipesScreen() {
                 )
               }
             >
-              <Text style={{ color: "red" }}>Usuń</Text>
+              <Text style={{ color: "#FF6347" }}>Usuń</Text>
             </TouchableOpacity>
           </View>
         ))}
       </View>
 
       {/* SEKCJA INSTRUKCJI */}
-      <View style={styles.section}>
-        <Text style={styles.label}>Kroki przygotowania:</Text>
+      <View
+        style={[
+          styles.section,
+          { backgroundColor: theme.sectionBg, borderColor: theme.inputBorder },
+        ]}
+      >
+        <Text style={[styles.label, { color: theme.text }]}>
+          Kroki przygotowania:
+        </Text>
         <View style={styles.row}>
           <TextInput
-            style={[styles.input, { flex: 1, marginBottom: 0 }]}
+            style={[
+              styles.input,
+              {
+                flex: 1,
+                marginBottom: 0,
+                backgroundColor: theme.inputBg,
+                borderColor: theme.inputBorder,
+                color: theme.text,
+              },
+            ]}
             placeholder="Opisz krok..."
+            placeholderTextColor={theme.placeholder}
             value={currentStep}
             onChangeText={setCurrentStep}
             multiline
@@ -224,12 +335,18 @@ export default function AddRecipesScreen() {
         </View>
 
         {instructionsList.map((step, index) => (
-          <View key={index} style={styles.addedItem}>
-            <Text style={{ flex: 1 }}>
-              <Text style={{ fontWeight: "bold" }}>{index + 1}.</Text> {step}
+          <View
+            key={index}
+            style={[styles.addedItem, { borderBottomColor: theme.inputBorder }]}
+          >
+            <Text style={{ flex: 1, color: theme.text }}>
+              <Text style={{ fontWeight: "bold", color: "#FF6347" }}>
+                {index + 1}.
+              </Text>{" "}
+              {step}
             </Text>
             <TouchableOpacity onPress={() => removeStep(index)}>
-              <Text style={{ color: "red", marginLeft: 10 }}>Usuń</Text>
+              <Text style={{ color: "#FF6347", marginLeft: 10 }}>Usuń</Text>
             </TouchableOpacity>
           </View>
         ))}
@@ -238,7 +355,7 @@ export default function AddRecipesScreen() {
       <TouchableOpacity
         style={[
           styles.button,
-          mutation.isPending && { backgroundColor: "#ccc" },
+          mutation.isPending && { backgroundColor: "#666" },
         ]}
         onPress={handleAddRecipe}
         disabled={mutation.isPending}
