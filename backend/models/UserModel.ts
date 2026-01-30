@@ -1,22 +1,23 @@
-import {Schema, model, Document, Types} from "mongoose"
-import { z } from 'zod';
-
+import { Schema, model, Document, Types } from "mongoose";
+import { z } from "zod";
 
 export const UserRegistrationSchema = z.object({
-  name: z.string()
+  name: z
+    .string()
     .min(2, "Name must be at least 2 characters")
     .max(20, "Name is too long")
     .trim(),
-  email: z.string()
-    .email("Invalid email format")
-    .lowercase()
-    .trim(),
-  password: z.string()
+  email: z.string().email("Invalid email format").lowercase().trim(),
+  password: z
+    .string()
     .min(8, "Password must be at least 8 characters")
     .regex(/[a-z]/, "Password must contain at least one lowercase letter")
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
     .regex(/[0-9]/, "Password must contain at least one number")
-    .regex(/[^a-zA-Z0-9]/, "Password must contain at least one special character")
+    .regex(
+      /[^a-zA-Z0-9]/,
+      "Password must contain at least one special character",
+    ),
 });
 
 export interface IUser extends Document {
@@ -25,10 +26,14 @@ export interface IUser extends Document {
   password: string;
 
   recipes_added: Types.ObjectId[];
+  recipes_verify: Types.ObjectId[];
+  recipes_uploaded: Types.ObjectId[];
   recipes_liked: Types.ObjectId[];
 
   friends_requested: Types.ObjectId[];
-  friends:  Types.ObjectId[];
+  friends: Types.ObjectId[];
+
+  shopping_list: Types.ObjectId[];
 
   verified: boolean;
   verificationToken: string;
@@ -36,21 +41,36 @@ export interface IUser extends Document {
   expireAt: Date;
 }
 
-const userSchema = new Schema<IUser>({
-  name: { type: String, required: true, trim: true },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
+const userSchema = new Schema<IUser>(
+  {
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: { type: String, required: true },
 
-  recipes_added: [{ type: Schema.Types.ObjectId, ref: 'Recipe' }],
-  recipes_liked: [{ type: Schema.Types.ObjectId, ref: 'Recipe' }],
-  
-  friends_requested: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-  friends: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    recipes_added: [{ type: Schema.Types.ObjectId, ref: "Recipe" }],
+    recipes_liked: [{ type: Schema.Types.ObjectId, ref: "Recipe" }],
 
-  verified: { type: Boolean, default: false },
-  verificationToken: {type: String}
-  }, { 
-  timestamps: true
-  });
+    friends_requested: [{ type: Schema.Types.ObjectId, ref: "User" }],
+    friends: [{ type: Schema.Types.ObjectId, ref: "User" }],
 
-export default model<IUser>('User', userSchema);
+    shopping_list: [{ type: Schema.Types.ObjectId, ref: "ShoppingItem" }],
+
+    verified: { type: Boolean, default: false },
+    verificationToken: { type: String, default: "" },
+    expireAt: {
+      type: Date,
+      index: { expires: 0 },
+    },
+  },
+  {
+    timestamps: true,
+  },
+);
+
+export default model<IUser>("User", userSchema);
