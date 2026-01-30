@@ -50,7 +50,7 @@ router.get(
 );
 
 //!GET Single recipe by ID
-//http://localhost:7777/api/recipies/:id
+//http://localhost:7777/api/recipes/:id
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const recipe = await Recipe.findById(req.params.id).populate(
