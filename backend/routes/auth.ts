@@ -95,9 +95,17 @@ router.get("/verify/:token", async (req, res, next) => {
 
     await user.save();
 
-    res
-      .status(200)
-      .send("<h1>Email verified successfully! You can now log in.</h1>");
+    res.status(200)
+      .send(`<div style="font-family: sans-serif; text-align: center; padding: 50px;">
+    <h1 style="color: #4CAF50;">Sukces! 🎉</h1>
+    <p style="font-size: 18px; color: #333;">Twoje konto zostało pomyślnie zweryfikowane.</p>
+    <p>Możesz teraz wrócić do aplikacji i się zalogować.</p>
+    <div style="margin-top: 30px;">
+      <span style="font-size: 50px;">🥗</span>
+    </div>
+  </div>`);
+
+    //res.redirect("https://mealplanner-bg.up.railway.app/login");   przekierowanie do aplikacji frontowej
   } catch (error) {
     next(error);
   }
