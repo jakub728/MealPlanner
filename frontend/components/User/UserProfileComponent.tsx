@@ -21,7 +21,6 @@ const UserProfileComponent = () => {
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
 
-  // 1. Pobieramy dane o użytkowniku (żeby dostać listę recipes_added)
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: ["userMe"],
     queryFn: async () => {
@@ -30,7 +29,6 @@ const UserProfileComponent = () => {
     },
   });
 
-  // 2. Pobieramy wszystkie wpisy z kalendarza
   const { data: calendarData, isLoading: calendarLoading } = useQuery({
     queryKey: ["calendar", "all"],
     queryFn: async () => {
@@ -39,7 +37,6 @@ const UserProfileComponent = () => {
     },
   });
 
-  // 3. Pobieramy listę zakupów
   const { data: shoppingData, isLoading: shoppingLoading } = useQuery({
     queryKey: ["shoppingList"],
     queryFn: async () => {
@@ -48,7 +45,6 @@ const UserProfileComponent = () => {
     },
   });
 
-  // Obliczenia statystyk
   const recipesCount = Array.isArray(userData?.recipes_added)
     ? userData.recipes_added.length
     : 0;
