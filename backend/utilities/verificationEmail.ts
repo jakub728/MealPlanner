@@ -1,26 +1,14 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendVerificationEmail = async (email: string, token: string) => {
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
-
   const url = `https://mealplanner-bg.up.railway.app/api/auth/verify/${token}`;
 
   try {
-    console.log(`Próba wysłania maila do: ${email}`);
-
-    const info = await transporter.sendMail({
-      from: '"Meal Planner" <meal.planner.no.reply.00@gmail.com>',
+    console.log("Wysyłam przez Resend...");
+    await resend.emails.send({
+      from: "Meal Planner <onboarding@resend.dev>",
       to: email,
       subject: "Potwierdź swój adres e-mail",
       html: `
@@ -45,11 +33,9 @@ export const sendVerificationEmail = async (email: string, token: string) => {
         </div>
       `,
     });
-
-    console.log("Mail wysłany! ID wiadomości:", info.messageId);
-    return info;
+    console.log("Mail wysłany!");
   } catch (error) {
-    console.error("BŁĄD NODEMAILER:", error);
+    console.error("BŁĄD RESEND:", error);
     throw error;
   }
 };
