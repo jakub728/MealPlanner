@@ -7,6 +7,7 @@ import {
 import Recipe, { RecipeValidationSchema } from "../models/RecipeModel.js";
 import { checkToken } from "../middleware/checkToken.js";
 import UserModel from "../models/UserModel.js";
+// @ts-ignore
 import { uploadRecipe } from "../utilities/s3.js";
 
 const router = Router();
@@ -94,8 +95,9 @@ router.post(
         }
       });
 
-      if (req.file) {
-        rawData.imageUrl = (req.file as any).location;
+      const file = (req as any).file;
+      if (file) {
+        rawData.imageUrl = file.location;
       }
 
       const validatedData = RecipeValidationSchema.parse(rawData);
