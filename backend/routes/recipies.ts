@@ -51,7 +51,7 @@ router.get(
   },
 );
 
-//!GET Recipes liker
+//!GET Recipes liked by user [recipes_liked]
 //http://localhost:7777/api/recipes/liked
 router.get(
   "/liked",

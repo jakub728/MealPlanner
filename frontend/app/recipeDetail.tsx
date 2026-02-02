@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   useColorScheme,
+  Image,
 } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
@@ -18,10 +19,8 @@ import Colors from "@/constants/Colors";
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
-  const isDark = colorScheme === "dark";
 
   const {
     data: recipe,
@@ -31,8 +30,7 @@ export default function RecipeDetailScreen() {
     queryKey: ["recipe", id],
     queryFn: async () => {
       const response = await api.get(`/recipes/${id}`);
-      // Zabezpieczenie na wypadek struktury { recipe: {} }
-      return response.data.recipe || response.data;
+      return response.data;
     },
     enabled: !!id,
   });
@@ -48,15 +46,7 @@ export default function RecipeDetailScreen() {
   if (error || !recipe) {
     return (
       <View style={[styles.center, { backgroundColor: theme.background }]}>
-        <Text style={[styles.errorText, { color: theme.subText }]}>
-          Nie udało się załadować przepisu.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Text style={styles.backButtonText}>Wróć do listy</Text>
-        </TouchableOpacity>
+        <Text style={{ color: theme.text }}>Nie znaleziono przepisu.</Text>
       </View>
     );
   }
@@ -68,32 +58,65 @@ export default function RecipeDetailScreen() {
     >
       <Stack.Screen
         options={{
-          title: "Szczegóły",
-          headerTitleStyle: { fontWeight: "bold", color: theme.text },
-          headerStyle: { backgroundColor: theme.background },
+          title: "",
+          headerTransparent: true,
           headerTintColor: "#FF6347",
         }}
       />
 
-      <ScrollView
-        style={[styles.container, { backgroundColor: theme.background }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View
-          style={[
-            styles.headerImagePlaceholder,
-            { backgroundColor: isDark ? "#1E1E1E" : "#FFF5F3" },
-          ]}
-        >
-          <Ionicons name="restaurant" size={80} color="#FF6347" opacity={0.2} />
-        </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Prawdziwe zdjęcie z bazy */}
+        {recipe.imageUrl ? (
+          <Image source={{ uri: recipe.imageUrl }} style={styles.headerImage} />
+        ) : (
+          <View
+            style={[
+              styles.headerImagePlaceholder,
+              { backgroundColor: theme.card },
+            ]}
+          >
+            <Ionicons
+              name="restaurant"
+              size={80}
+              color="#FF6347"
+              opacity={0.3}
+            />
+          </View>
+        )}
 
         <View
           style={[styles.mainContent, { backgroundColor: theme.background }]}
         >
-          <Text style={[styles.title, { color: theme.text }]}>
-            {recipe.title}
-          </Text>
+          {/* Tytuł i Kuchnia */}
+          <View style={styles.titleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.title, { color: theme.text }]}>
+                {recipe.title}
+              </Text>
+              {recipe.cuisine && (
+                <View style={styles.cuisineBadge}>
+                  <Ionicons name="flag-outline" size={14} color="#FF6347" />
+                  <Text style={styles.cuisineText}>{recipe.cuisine}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Diety (diet_type) */}
+          {recipe.diet_type && recipe.diet_type.length > 0 && (
+            <View style={styles.dietContainer}>
+              {recipe.diet_type.map((diet: string, i: number) => (
+                <View
+                  key={i}
+                  style={[styles.dietBadge, { backgroundColor: theme.card }]}
+                >
+                  <Text style={[styles.dietText, { color: theme.subText }]}>
+                    {diet}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {recipe.description && (
             <View
@@ -105,6 +128,7 @@ export default function RecipeDetailScreen() {
             </View>
           )}
 
+          {/* Składniki */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ionicons name="basket" size={22} color="#FF6347" />
@@ -130,6 +154,7 @@ export default function RecipeDetailScreen() {
             ))}
           </View>
 
+          {/* Instrukcje */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ionicons name="list" size={22} color="#FF6347" />
@@ -155,35 +180,40 @@ export default function RecipeDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
+  center: { flex: 1, justifyContent: "center", alignItems: "center" },
+  headerImage: { width: "100%", height: 300 },
   headerImagePlaceholder: {
-    height: 150,
+    width: "100%",
+    height: 250,
     justifyContent: "center",
     alignItems: "center",
   },
   mainContent: {
     padding: 20,
-    marginTop: -20,
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    marginTop: -30,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    minHeight: 500,
   },
-  title: { fontSize: 28, fontWeight: "bold", marginBottom: 15 },
-  descriptionBox: {
-    padding: 15,
-    borderRadius: 12,
-    marginBottom: 25,
+  titleRow: { marginBottom: 10 },
+  title: { fontSize: 26, fontWeight: "bold" },
+  cuisineBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 5,
   },
-  descriptionText: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontStyle: "italic",
+  cuisineText: { color: "#FF6347", fontWeight: "600", fontSize: 14 },
+  dietContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 20,
   },
+  dietBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  dietText: { fontSize: 12, fontWeight: "500" },
+  descriptionBox: { padding: 15, borderRadius: 15, marginBottom: 25 },
+  descriptionText: { fontSize: 15, lineHeight: 22, fontStyle: "italic" },
   section: { marginBottom: 30 },
   sectionHeader: {
     flexDirection: "row",
@@ -202,17 +232,13 @@ const styles = StyleSheet.create({
   ingredientAmount: { fontSize: 16, fontWeight: "bold", color: "#FF6347" },
   stepContainer: { flexDirection: "row", gap: 15, marginBottom: 20 },
   stepBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#FF6347",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 2,
   },
-  stepNumber: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+  stepNumber: { color: "#fff", fontWeight: "bold", fontSize: 13 },
   stepContent: { flex: 1, fontSize: 16, lineHeight: 24 },
-  errorText: { fontSize: 16, marginBottom: 20 },
-  backButton: { backgroundColor: "#FF6347", padding: 12, borderRadius: 8 },
-  backButtonText: { color: "#fff", fontWeight: "bold" },
 });

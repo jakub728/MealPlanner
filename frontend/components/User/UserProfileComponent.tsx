@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,67 +8,131 @@ import {
   ScrollView,
   ActivityIndicator,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 import Colors from "@/constants/Colors";
+import UserSettingsComponent from "./UserSettingsComponent";
+
+const CALENDAR_STORAGE_KEY = "user_calendar_data";
+const SHOPPING_LIST_KEY = "shopping-list";
 
 const UserProfileComponent = () => {
-  const { logout } = useAuthStore();
+  const [showSettings, setShowSettings] = useState(false);
+  const [localCalendarCount, setLocalCalendarCount] = useState(0);
+  const [localShoppingCount, setLocalShoppingCount] = useState(0);
+  const [isLocalLoading, setIsLocalLoading] = useState(true);
+
+  const { token, logout } = useAuthStore();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
 
+  const loadLocalStorageData = useCallback(async () => {
+    try {
+      setIsLocalLoading(true);
+
+      // 1. Kalendarz
+      const calendarRaw = await AsyncStorage.getItem(CALENDAR_STORAGE_KEY);
+      const calendarData = calendarRaw ? JSON.parse(calendarRaw) : [];
+      setLocalCalendarCount(
+        Array.isArray(calendarData) ? calendarData.length : 0,
+      );
+
+      // 2. Lista zakupów
+      const shoppingRaw = await AsyncStorage.getItem(SHOPPING_LIST_KEY);
+      const shoppingData = shoppingRaw ? JSON.parse(shoppingRaw) : [];
+
+      // Liczymy tylko to, co jeszcze NIE kupione
+      const toBuy = Array.isArray(shoppingData)
+        ? shoppingData.filter((item: any) => !item.purchased).length
+        : 0;
+
+      setLocalShoppingCount(toBuy);
+    } catch (e) {
+      console.error("Błąd odczytu danych profilu:", e);
+    } finally {
+      setIsLocalLoading(false);
+    }
+  }, []);
+
+  // Odświeżanie danych przy każdym wejściu na ekran
+  useFocusEffect(
+    useCallback(() => {
+      loadLocalStorageData();
+    }, [loadLocalStorageData]),
+  );
+
+  // 1. Znajdź dane użytkownika
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: ["userMe"],
     queryFn: async () => {
       const response = await api.get("/auth/me");
       return response.data;
     },
+    enabled: !!token,
+    retry: false,
   });
 
-  const { data: calendarData, isLoading: calendarLoading } = useQuery({
-    queryKey: ["calendar", "all"],
+  // 2. Pobierz przepisy prywatne użytkownika
+  const { data: privateRecipes } = useQuery({
+    queryKey: ["privateRecipes"],
     queryFn: async () => {
-      const response = await api.get("/calendar/all");
+      const response = await api.get("/recipes/private");
       return response.data;
     },
+    enabled: !!token,
   });
-
-  const { data: shoppingData, isLoading: shoppingLoading } = useQuery({
-    queryKey: ["shoppingList"],
-    queryFn: async () => {
-      const response = await api.get("/shopping");
-      return response.data;
-    },
-  });
-
-  const recipesCount = Array.isArray(userData?.recipes_added)
-    ? userData.recipes_added.length
-    : 0;
-
-  const plannedCount = Array.isArray(calendarData) ? calendarData.length : 0;
-
-  const toBuyCount = Array.isArray(shoppingData)
-    ? shoppingData.filter((item: any) => !item.purchased && !item.have_at_home)
-        .length
-    : 0;
 
   const stats = [
-    { label: "Przepisy", value: recipesCount, icon: "restaurant-outline" },
-    { label: "W planie", value: plannedCount, icon: "calendar-outline" },
-    { label: "Do kupienia", value: toBuyCount, icon: "cart-outline" },
+    {
+      label: "Prywatne przepisy",
+      value: Array.isArray(privateRecipes) ? privateRecipes.length : 0,
+      icon: "lock-closed-outline",
+    },
+    {
+      label: "Publiczne przepisy",
+      value: userData?.recipes_uploaded?.length || 0,
+      icon: "cloud-upload-outline",
+    },
+    {
+      label: "Polubione przepisy",
+      value: userData?.recipes_liked?.length || 0,
+      icon: "heart-outline",
+    },
+    {
+      label: "Przepisy w planie",
+      value: localCalendarCount,
+      icon: "calendar-outline",
+    },
+    {
+      label: "Rzeczy do kupienia",
+      value: localShoppingCount,
+      icon: "cart-outline",
+    },
+    {
+      label: "Znajomi",
+      value: userData?.friends?.length || 0,
+      icon: "people-outline",
+    },
   ];
 
-  const isLoading = userLoading || calendarLoading || shoppingLoading;
+  const isLoading = userLoading || isLocalLoading;
+
+  if (showSettings) {
+    return <UserSettingsComponent onBack={() => setShowSettings(false)} />;
+  }
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header Profilu */}
         <View style={styles.header}>
           <View
             style={[
@@ -90,6 +154,7 @@ const UserProfileComponent = () => {
           </Text>
         </View>
 
+        {/* Statystyki w Gridzie */}
         {isLoading ? (
           <ActivityIndicator
             color="#FF6347"
@@ -97,13 +162,13 @@ const UserProfileComponent = () => {
             style={{ marginVertical: 20 }}
           />
         ) : (
-          <View style={styles.statsContainer}>
+          <View style={styles.statsGrid}>
             {stats.map((stat, index) => (
               <View
                 key={index}
                 style={[styles.statBox, { backgroundColor: theme.card }]}
               >
-                <Ionicons name={stat.icon as any} size={20} color="#FF6347" />
+                <Ionicons name={stat.icon as any} size={18} color="#FF6347" />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   {stat.value}
                 </Text>
@@ -115,17 +180,65 @@ const UserProfileComponent = () => {
           </View>
         )}
 
-        <View style={[styles.menuContainer, { backgroundColor: theme.card }]}>
+        {/* Sekcja Znajomych */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Znajomi ({userData?.friends?.length || 0})
+          </Text>
+          <TouchableOpacity>
+            <Text style={{ color: "#FF6347" }}>Zobacz wszystkich</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={[styles.friendsContainer, { backgroundColor: theme.card }]}
+        >
+          {userData?.friends && userData.friends.length > 0 ? (
+            userData.friends.slice(0, 4).map((friend: any, idx: number) => (
+              <View key={idx} style={styles.friendItem}>
+                <View style={styles.friendAvatarSmall}>
+                  <Ionicons name="person-circle" size={30} color="#ccc" />
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.friendName, { color: theme.text }]}
+                >
+                  {friend.name || "Znajomy"}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.subText }]}>
+              Dodaj znajomych (wkrótce dostępne)!
+            </Text>
+          )}
+        </View>
+
+        {/* Menu Ustawień */}
+        <View
+          style={[
+            styles.menuContainer,
+            { backgroundColor: theme.card, marginTop: 20 },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.menuItem, { borderBottomColor: theme.border }]}
+            onPress={() => setShowSettings(true)}
           >
             <Ionicons name="settings-outline" size={22} color={theme.text} />
             <Text style={[styles.menuText, { color: theme.text }]}>
-              Ustawienia konta
+              Ustawienia
             </Text>
             <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>
+        </View>
 
+        <View
+          style={[
+            styles.menuContainer,
+            { backgroundColor: theme.card, marginTop: 20 },
+          ]}
+        >
           <TouchableOpacity style={styles.menuItem} onPress={logout}>
             <Ionicons name="log-out-outline" size={22} color="#FF6347" />
             <Text style={[styles.menuText, { color: "#FF6347" }]}>
@@ -140,48 +253,88 @@ const UserProfileComponent = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { padding: 20, alignItems: "center" },
-  header: { alignItems: "center", marginBottom: 30, marginTop: 20 },
+  scrollContent: { padding: 20 },
+  header: { alignItems: "center", marginBottom: 25 },
   avatarPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 15,
+    marginBottom: 10,
   },
-  userName: { fontSize: 22, fontWeight: "bold" },
-  userEmail: { fontSize: 14, marginTop: 4 },
-  statsContainer: {
+  userName: { fontSize: 20, fontWeight: "bold" },
+  userEmail: { fontSize: 13 },
+
+  // Grid na 2 kolumny
+  statsGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 30,
+    flexWrap: "wrap",
+    justifyContent: "space-between", // Rozsuwa elementy na boki
+    marginBottom: 20,
   },
   statBox: {
-    flex: 1,
+    width: "48%", // Nieco mniej niż 50%, aby uwzględnić marginesy
     padding: 15,
-    borderRadius: 20,
+    borderRadius: 20, // Zaokrąglone jak wcześniej
     alignItems: "center",
-    marginHorizontal: 5,
+    marginBottom: 12,
+    // Styl spójny z kartami (cień zamiast czarnej ramki)
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  statValue: { fontSize: 18, fontWeight: "bold", marginTop: 5 },
-  statLabel: { fontSize: 11, textAlign: "center" },
+  statValue: { fontSize: 18, fontWeight: "bold", marginTop: 4 },
+  statLabel: { fontSize: 12, textAlign: "center" },
+
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 10,
+    paddingHorizontal: 5,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: "bold" },
+
+  friendsContainer: {
+    width: "100%",
+    padding: 15,
+    borderRadius: 20,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    elevation: 1, // Spójny styl
+  },
+  friendItem: { alignItems: "center", width: "25%", padding: 5 },
+  friendName: { fontSize: 10, marginTop: 2 },
+  friendAvatarSmall: {
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
+    backgroundColor: "#f0f0f0",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyText: { fontSize: 12, textAlign: "center", width: "100%" },
+
+  // Menu stylizowane jak statBox
   menuContainer: {
     width: "100%",
     borderRadius: 20,
     overflow: "hidden",
+    marginTop: 15,
+    // Kopiujemy styl statBoxa:
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   menuItem: {
     flexDirection: "row",
     alignItems: "center",
     padding: 18,
-    borderBottomWidth: 1,
   },
   menuText: { flex: 1, marginLeft: 15, fontSize: 16 },
 });

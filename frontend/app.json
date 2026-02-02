@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "Onion Meal Planner",
+    "name": "Onion Meals",
     "slug": "onion-meal-planner",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "orientation": "portrait",
-    "icon": "./assets/images/onion_meal_planner.png",
+    "icon": "./assets/images/onion-meal-planner-icon.png",
     "scheme": "frontend",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/onion_meal_planner.png",
+      "image": "./assets/images/onion-meal-planner-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,24 +18,27 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/onion_meal_planner.png",
+        "foregroundImage": "./assets/images/onion-meal-planner-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.onionmealplanner"
+      "package": "com.mrdziubek.onionmealplanner"
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/onion_meal_planner.png"
+      "favicon": "./assets/images/onion-meal-planner-icon.png"
     },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store"
-    ],
+    "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e53d59bb-bcc9-4774-b3a8-dc21ea7274b4"
+      }
     }
   }
 }
