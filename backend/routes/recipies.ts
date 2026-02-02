@@ -7,6 +7,7 @@ import {
 import Recipe, { RecipeValidationSchema } from "../models/RecipeModel.js";
 import { checkToken } from "../middleware/checkToken.js";
 import UserModel from "../models/UserModel.js";
+import { uploadRecipe } from "../utilities/s3.js";
 
 const router = Router();
 
@@ -16,9 +17,10 @@ router.get(
   "/public",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const recipes = await Recipe.find({ status: "public" })
-        .populate("author", "name")
-        .populate("ingredients.ingredient");
+      const recipes = await Recipe.find({ status: "public" }).populate(
+        "author",
+        "name",
+      );
 
       res.status(200).json(recipes);
     } catch (error) {
@@ -62,21 +64,6 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       return next({ status: 404, message: "Recipe not found" });
     }
 
-    // const totals = recipe.ingredients.reduce(
-    //   (acc, item: any) => {
-    //     const ing = item.ingredient;
-    //     const factor = item.amount / 100;
-
-    //     return {
-    //       calories: acc.calories + ing.calories * factor,
-    //       protein: acc.protein + ing.protein * factor,
-    //       carbs: acc.carbs + ing.carbs * factor,
-    //       fat: acc.fat + ing.fat * factor,
-    //     };
-    //   },
-    //   { calories: 0, protein: 0, carbs: 0, fat: 0 },
-    // );
-
     res.status(200).json(recipe);
   } catch (error) {
     next(error);
@@ -88,9 +75,30 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 router.post(
   "/add",
   checkToken,
+  uploadRecipe.single("image"),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const validatedData = RecipeValidationSchema.parse(req.body);
+      const rawData = { ...req.body };
+
+      const fieldsToParse = [
+        "ingredients",
+        "instructions",
+        "diet_type",
+        "cuisine",
+      ];
+      fieldsToParse.forEach((field) => {
+        if (typeof rawData[field] === "string") {
+          try {
+            rawData[field] = JSON.parse(rawData[field]);
+          } catch (e) {}
+        }
+      });
+
+      if (req.file) {
+        rawData.imageUrl = (req.file as any).location;
+      }
+
+      const validatedData = RecipeValidationSchema.parse(rawData);
 
       const newRecipe = new Recipe({
         ...validatedData,
@@ -148,7 +156,5 @@ router.delete(
     }
   },
 );
-
-
 
 export default router;
