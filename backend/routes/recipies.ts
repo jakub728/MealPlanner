@@ -7,7 +7,6 @@ import {
 import Recipe, { RecipeValidationSchema } from "../models/RecipeModel.js";
 import { checkToken } from "../middleware/checkToken.js";
 import UserModel from "../models/UserModel.js";
-// @ts-ignore
 import { uploadRecipe } from "../utilities/s3.js";
 
 const router = Router();
