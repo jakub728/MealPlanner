@@ -51,6 +51,32 @@ router.get(
   },
 );
 
+//!GET Recipes liker
+//http://localhost:7777/api/recipes/liked
+router.get(
+  "/liked",
+  checkToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = await UserModel.findById(req.userId).populate({
+        path: "recipes_liked",
+        populate: {
+          path: "author",
+          select: "name",
+        },
+      });
+
+      if (!user) {
+        return next({ status: 404, message: "User not found" });
+      }
+
+      res.status(200).json(user.recipes_liked || []);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
 //!GET Single recipe by ID
 //http://localhost:7777/api/recipes/:id
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
