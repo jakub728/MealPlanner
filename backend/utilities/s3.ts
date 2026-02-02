@@ -3,14 +3,6 @@ import { S3Client } from "@aws-sdk/client-s3";
 import multer from "multer";
 import multerS3 from "multer-s3";
 
-
-
-console.log("--- AWS CONFIG CHECK ---");
-console.log("REGION:", process.env.AWS_REGION);
-console.log("BUCKET:", process.env.AWS_BUCKET_NAME);
-console.log("KEY ID LENGTH:", process.env.AWS_ACCESS_KEY_ID?.length || "ZERO/UNDEFINED");
-console.log("------------------------");
-
 const s3Config: any = {
   region: process.env.AWS_REGION || "eu-central-1",
   credentials: {
