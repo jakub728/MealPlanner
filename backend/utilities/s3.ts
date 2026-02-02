@@ -7,19 +7,21 @@ if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
   console.error("❌ BŁĄD KONFIGURACJI: Brak kluczy AWS w pliku .env!");
 }
 
-const s3 = new S3Client({
+const s3Config: any = {
   region: process.env.AWS_REGION || "eu-central-1",
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   },
-});
+};
 
-const createMulterUpload = (folder) => {
+const s3 = new S3Client(s3Config);
+
+const createMulterUpload = (folder: string) => {
   return multer({
     storage: multerS3({
-      s3: s3,
-      bucket: process.env.AWS_BUCKET_NAME,
+      s3: s3 as any,
+      bucket: process.env.AWS_BUCKET_NAME as string,
       acl: "public-read",
       contentType: multerS3.AUTO_CONTENT_TYPE,
       key: (req, file, cb) => {
