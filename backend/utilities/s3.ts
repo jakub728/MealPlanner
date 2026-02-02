@@ -6,12 +6,19 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const bucketName = process.env.AWS_BUCKET_NAME;
 const region = process.env.AWS_REGION;
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
 
-if (!region || !accessKeyId || !secretAccessKey) {
-  throw new Error("Missing AWS Configuration in .env file");
+if (!region || !accessKeyId || !secretAccessKey || !bucketName) {
+  console.error("DEBUG AWS:", { 
+    region: !!region, 
+    key: !!accessKeyId, 
+    secret: !!secretAccessKey, 
+    bucket: !!bucketName 
+  });
+  throw new Error("Missing AWS Configuration. Check Railway Variables.");
 }
 
 const s3 = new S3Client({
