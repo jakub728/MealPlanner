@@ -5,7 +5,11 @@ import multer from "multer";
 import multerS3 from "multer-s3";
 
 const s3 = new S3Client({
-  region: process.env.AWS_REGION || "eu-central-1",
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
 });
 
 const createMulterUpload = (folder: "recipes" | "users") => {
