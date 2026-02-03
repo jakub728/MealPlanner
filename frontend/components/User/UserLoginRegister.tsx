@@ -9,16 +9,25 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/useAuthStore";
 import Colors from "../../constants/Colors";
+import { Ionicons } from "@expo/vector-icons";
+import logoWhite from "../../assets/images/onion-meal-planner.png";
+import logoBlack from "../../assets/images/onion-meal-planner-icon.png";
 
 export default function UserLoginRegisterComponent() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [authMode, setAuthMode] = useState<"login" | "register" | "reset">(
+    "login",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [secureText, setSecureText] = useState(true);
 
   const setAuth = useAuthStore((state) => state.setAuth);
 
@@ -29,97 +38,174 @@ export default function UserLoginRegisterComponent() {
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
 
+  // 1. Login
   const handleAuth = async () => {
     try {
-      if (isLogin) {
+      setLoading(true);
+      if (authMode === "login") {
         const response = await api.post("/auth/login", { email, password });
         await setAuth(response.data.token, response.data.user);
-      } else {
+      } else if (authMode === "register") {
         await api.post("/auth/register", { name, email, password });
         Alert.alert("Sukces", "Sprawdź maila, aby zweryfikować konto!");
-        setIsLogin(true);
+        setAuthMode("login");
       }
     } catch (error: any) {
-      console.log("BŁĄD:", error);
       const message = error.response?.data?.message || "Coś poszło nie tak";
       Alert.alert("Błąd", message);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // 2. Reset hasła
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert("Błąd", "Wpisz adres e-mail, na który mamy wysłać link.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await api.post("/auth/forgot-password", { email });
+      Alert.alert("Link wysłany", response.data.message);
+      setAuthMode("login");
+    } catch (error: any) {
+      const message = error.response?.data?.message || "Błąd wysyłania";
+      Alert.alert("Błąd", message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getButtonText = () => {
+    if (authMode === "login") return "Zaloguj";
+    if (authMode === "register") return "Zarejestruj";
+    return "Wyślij link do resetu";
+  };
+
+  const handleMainAction = () => {
+    if (authMode === "reset") handleForgotPassword();
+    else handleAuth();
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: theme.background }}
     >
       <View style={styles.container}>
+        {colorScheme === "light" ? (
+          <Image source={logoBlack} style={styles.logo} resizeMode="contain" />
+        ) : (
+          <Image source={logoWhite} style={styles.logo} resizeMode="contain" />
+        )}
+
         <Text style={[styles.title, { color: theme.text }]}>
-          {isLogin ? "Zaloguj się" : "Stwórz konto"}
+          {authMode === "login" && "Zaloguj się"}
+          {authMode === "register" && "Stwórz konto"}
+          {authMode === "reset" && "Resetuj hasło"}
         </Text>
 
-        {!isLogin && (
+        {/* Pole Imię tylko przy rejestracji */}
+        {authMode === "register" && (
           <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: theme.background, color: theme.text },
-            ]}
+            style={[styles.input, { color: theme.text }]}
             placeholder="Imię"
-            placeholderTextColor={theme.placeholder}
+            placeholderTextColor={theme.text}
             value={name}
             onChangeText={setName}
-            returnKeyType="next"
-            onSubmitEditing={() => emailRef.current?.focus()}
           />
         )}
 
+        {/* Pole Email zawsze widoczne */}
         <TextInput
-          ref={emailRef}
-          style={[
-            styles.input,
-            { backgroundColor: theme.background, color: theme.text },
-          ]}
+          style={[styles.input, { color: theme.text }]}
           placeholder="Email"
-          placeholderTextColor={theme.placeholder}
+          placeholderTextColor={theme.text}
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
           onChangeText={(text) => setEmail(text.toLowerCase())}
-          returnKeyType="next"
-          onSubmitEditing={() => passwordRef.current?.focus()}
         />
 
-        <TextInput
-          ref={passwordRef}
-          style={[
-            styles.input,
-            { backgroundColor: theme.background, color: theme.text },
-          ]}
-          placeholder="Hasło"
-          placeholderTextColor={theme.placeholder}
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          returnKeyType="go"
-          onSubmitEditing={handleAuth}
-        />
+        {/* Pole Hasło ukryte przy resecie */}
+        {authMode !== "reset" && (
+          <View style={[styles.passwordContainer, { borderColor: theme.tint }]}>
+            <TextInput
+              style={[styles.passwordInput, { color: theme.text }]}
+              placeholder="Hasło"
+              placeholderTextColor="#888"
+              secureTextEntry={secureText}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setSecureText(!secureText)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={secureText ? "eye-off-outline" : "eye-outline"}
+                size={22}
+                color={theme.text}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
 
-        <TouchableOpacity style={styles.button} onPress={handleAuth}>
-          <Text style={styles.buttonText}>
-            {isLogin ? "Zaloguj" : "Zarejestruj"}
-          </Text>
+        {/* Główny przycisk akcji */}
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleMainAction}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>{getButtonText()}</Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-          <Text style={[styles.switchText, { color: theme.text }]}>
-            {isLogin
-              ? "Nie masz konta? Zarejestruj się"
-              : "Masz już konto? Zaloguj się"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-          <Text style={[styles.switchText, { color: theme.text }]}>
-            {isLogin && "Zapomniałeś hasła? Zresetuj"}
-          </Text>
-        </TouchableOpacity>
+        {/* Nawigacja między trybami */}
+        <View style={{ marginTop: 20 }}>
+          {authMode === "reset" ? (
+            <TouchableOpacity onPress={() => setAuthMode("login")}>
+              <Text style={{ color: theme.text, textAlign: "center" }}>
+                Wróć do logowania
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                onPress={() =>
+                  setAuthMode(authMode === "login" ? "register" : "login")
+                }
+              >
+                <Text style={{ color: theme.text, textAlign: "center" }}>
+                  {authMode === "login"
+                    ? "Nie masz konta? Zarejestruj się"
+                    : "Masz już konto? Zaloguj się"}
+                </Text>
+              </TouchableOpacity>
+
+              {authMode === "login" && (
+                <TouchableOpacity
+                  onPress={() => setAuthMode("reset")}
+                  style={{ marginTop: 15 }}
+                >
+                  <Text
+                    style={{
+                      color: "#FF6347",
+                      textAlign: "center",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    Zapomniałeś hasła?
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -132,6 +218,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
+  },
+  logo: {
+    width: 120, // Dostosuj szerokość do własnych potrzeb
+    height: 120, // Dostosuj wysokość
+    alignSelf: "center",
+    marginBottom: 20,
   },
   input: {
     borderWidth: 1,
@@ -148,4 +240,21 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "#fff", fontWeight: "bold" },
   switchText: { marginTop: 20, color: "blue", textAlign: "center" },
+  forgotButton: { marginTop: 15 },
+  forgotText: { textAlign: "center", fontWeight: "500", fontSize: 14 },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+  },
+  eyeIcon: {
+    paddingHorizontal: 12,
+  },
 });
