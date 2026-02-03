@@ -127,20 +127,21 @@ export default function AddRecipesScreen() {
     if (
       !title.trim() ||
       selectedIngredients.length === 0 ||
-      instructionsList.length === 0
+      instructionsList.length === 0 ||
+      !image
     ) {
-      Alert.alert("Błąd", "Uzupełnij wymagane pola (tytuł, składniki, kroki)");
+      Alert.alert("Błąd", "Uzupełnij tytuł, zdjęcie, składniki, kroki)");
       return;
     }
-
+    
     const formData = new FormData();
-    if (image) {
-      const filename = image.split("/").pop() || "photo.jpg";
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image/jpeg`;
-      // @ts-ignore
-      formData.append("image", { uri: image, name: filename, type });
-    }
+
+    const filename = image.split("/").pop() || "photo.jpg";
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+    // @ts-ignore
+    formData.append("image", { uri: image, name: filename, type });
 
     formData.append("title", title.trim());
     formData.append("description", description.trim());
