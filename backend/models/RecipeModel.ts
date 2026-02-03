@@ -20,6 +20,7 @@ export const RecipeValidationSchema = z.object({
   instructions: z
     .array(z.string().min(5, "Instruction step is too short"))
     .min(1, "Recipe must have steps"),
+  status: z.enum(["private", "pending", "public"]).optional(),
   imageUrl: z.string().url("Invalid image URL").optional(),
   diet_type: z.array(z.string()).optional(),
   cuisine: z.string().optional(),
