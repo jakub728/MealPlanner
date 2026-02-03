@@ -19,7 +19,7 @@ import Colors from "@/constants/Colors";
 import UserSettingsComponent from "./UserSettingsComponent";
 
 const CALENDAR_STORAGE_KEY = "user_calendar_data";
-const SHOPPING_LIST_KEY = "shopping-list";
+const SHOPPING_LIST_KEY = "shopping_list_data";
 
 const UserProfileComponent = () => {
   const [showSettings, setShowSettings] = useState(false);
@@ -36,23 +36,30 @@ const UserProfileComponent = () => {
     try {
       setIsLocalLoading(true);
 
-      // 1. Kalendarz
+      // 1. Przepisy w planie
       const calendarRaw = await AsyncStorage.getItem(CALENDAR_STORAGE_KEY);
-      const calendarData = calendarRaw ? JSON.parse(calendarRaw) : [];
-      setLocalCalendarCount(
-        Array.isArray(calendarData) ? calendarData.length : 0,
-      );
+      if (calendarRaw) {
+        const calendarData = JSON.parse(calendarRaw);
+        if (Array.isArray(calendarData)) {
+          setLocalCalendarCount(calendarData.length);
+        }
+      } else {
+        setLocalCalendarCount(0);
+      }
 
-      // 2. Lista zakupów
+      // 2. Rzeczy do kupienia (tylko te, które nie są 'purchased' ani 'have_at_home')
       const shoppingRaw = await AsyncStorage.getItem(SHOPPING_LIST_KEY);
-      const shoppingData = shoppingRaw ? JSON.parse(shoppingRaw) : [];
-
-      // Liczymy tylko to, co jeszcze NIE kupione
-      const toBuy = Array.isArray(shoppingData)
-        ? shoppingData.filter((item: any) => !item.purchased).length
-        : 0;
-
-      setLocalShoppingCount(toBuy);
+      if (shoppingRaw) {
+        const shoppingData = JSON.parse(shoppingRaw);
+        if (Array.isArray(shoppingData)) {
+          const toBuy = shoppingData.filter(
+            (item: any) => !item.purchased && !item.have_at_home,
+          ).length;
+          setLocalShoppingCount(toBuy);
+        }
+      } else {
+        setLocalShoppingCount(0);
+      }
     } catch (e) {
       console.error("Błąd odczytu danych profilu:", e);
     } finally {

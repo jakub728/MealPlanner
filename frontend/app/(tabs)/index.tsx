@@ -58,6 +58,7 @@ const MEAL_COLORS: Record<MealType, string> = {
 };
 
 const CALENDAR_STORAGE_KEY = "user_calendar_data";
+const SHOPPING_LIST_KEY = "shopping_list_data";
 
 export default function PlannerScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -74,79 +75,110 @@ export default function PlannerScreen() {
 
   const router = useRouter();
 
-  const loadCalendar = async () => {
+  // 1. Ładowanie kalendarza i czyszczenie zestarych dat
+  const loadInitialData = async () => {
     try {
       setIsLocalLoading(true);
-      const data = await AsyncStorage.getItem(CALENDAR_STORAGE_KEY);
-      let parsedData = data ? JSON.parse(data) : [];
-      setFullCalendar(parsedData);
+
+      // a) Ładowanie i czyszczenie kalendarza (zostawiamy obecny tydzień)
+      const calData = await AsyncStorage.getItem(CALENDAR_STORAGE_KEY);
+      let parsedCal = calData ? JSON.parse(calData) : [];
+      const startOfThisWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const freshCal = parsedCal.filter(
+        (item: any) => !isBefore(new Date(item.date), startOfThisWeek),
+      );
+
+      // b) Ładowanie i czyszczenie zakupów (usuwamy wszystko przed dzisiaj)
+      const shopData = await AsyncStorage.getItem(SHOPPING_LIST_KEY);
+      let parsedShop = shopData ? JSON.parse(shopData) : [];
+      const today = startOfDay(new Date());
+      const freshShop = parsedShop.filter(
+        (item: any) => !isBefore(new Date(item.date), today),
+      );
+
+      // c) Zapisujemy wyczyszczone dane
+      setFullCalendar(freshCal);
+      await AsyncStorage.setItem(
+        CALENDAR_STORAGE_KEY,
+        JSON.stringify(freshCal),
+      );
+      await AsyncStorage.setItem(SHOPPING_LIST_KEY, JSON.stringify(freshShop));
     } catch (e) {
-      console.error("Błąd wczytywania", e);
+      console.error("Błąd inicjalizacji danych", e);
     } finally {
       setIsLocalLoading(false);
     }
   };
 
   useEffect(() => {
-    loadCalendar();
+    loadInitialData();
   }, []);
 
-  const saveCalendar = async (newCalendar: any[]) => {
-    try {
-      setFullCalendar(newCalendar);
-      await AsyncStorage.setItem(
-        CALENDAR_STORAGE_KEY,
-        JSON.stringify(newCalendar),
-      );
-    } catch (e) {
-      Alert.alert("Błąd", "Nie udało się zapisać planu.");
-    }
-  };
-
-  const { data: myRecipes, isLoading: recipesLoading } = useQuery({
-    queryKey: ["myRecipes"],
-    queryFn: async () => {
-      const response = await api.get("/recipes/private");
-      return response.data;
-    },
-    enabled: !!token && modalVisible,
-  });
-
+  // 2. Obsługa dodawania posiłku
   const handleAddMeal = async (mealType: MealType) => {
     const selectedRecipe = myRecipes?.find(
       (r: any) => r._id === selectedRecipeId,
     );
     if (!selectedRecipe) return;
 
-    const filteredCalendar = fullCalendar.filter(
-      (item) =>
-        !(
-          isSameDay(new Date(item.date), selectedDate) &&
-          item.mealType === mealType
-        ),
-    );
+    const dateIso = selectedDate.toISOString();
 
+    // a) Aktualizacja Kalendarza
     const newMeal = {
       _id: Math.random().toString(36).substr(2, 9),
       recipe: selectedRecipe,
-      date: selectedDate.toISOString(),
+      date: dateIso,
       mealType,
     };
 
-    await saveCalendar([...filteredCalendar, newMeal]);
+    const updatedCal = [...fullCalendar, newMeal];
+    setFullCalendar(updatedCal);
+    await AsyncStorage.setItem(
+      CALENDAR_STORAGE_KEY,
+      JSON.stringify(updatedCal),
+    );
+
+    // b) Aktualizacja Listy Zakupów
+    try {
+      const currentShopData = await AsyncStorage.getItem(SHOPPING_LIST_KEY);
+      let currentShopList = currentShopData ? JSON.parse(currentShopData) : [];
+
+      const newIngredients = selectedRecipe.ingredients.map((ing: any) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        name: ing.name,
+        amount: ing.amount,
+        unit: ing.unit,
+        date: dateIso,
+        checked: false,
+        recipeTitle: selectedRecipe.title,
+      }));
+
+      const updatedShopList = [...currentShopList, ...newIngredients];
+      await AsyncStorage.setItem(
+        SHOPPING_LIST_KEY,
+        JSON.stringify(updatedShopList),
+      );
+    } catch (e) {
+      console.error("Błąd zapisu listy zakupów", e);
+    }
+
     setModalVisible(false);
     setSelectedRecipeId(null);
   };
 
-  const handleDelete = (id: string) => {
-    Alert.alert("Usuń posiłek", "Czy na pewno?", [
+  // 3. Usuwanie z kalendarza i zakupów
+  const handleDelete = (id: string, date: string, recipeTitle: string) => {
+    Alert.alert("Usuń posiłek", "Jesteś pewien?", [
       { text: "Anuluj", style: "cancel" },
       {
         text: "Usuń",
-        style: "destructive",
-        onPress: () => {
+        onPress: async () => {
           const updated = fullCalendar.filter((item) => item._id !== id);
-          saveCalendar(updated);
+          setFullCalendar(updated);
+          await AsyncStorage.setItem(
+            CALENDAR_STORAGE_KEY,
+            JSON.stringify(updated),
+          );
         },
       },
     ]);
@@ -160,6 +192,17 @@ export default function PlannerScreen() {
   const weekDays = eachDayOfInterval({
     start: startOfCurrentWeek,
     end: addDays(startOfCurrentWeek, daysToShow - 1),
+  });
+
+
+  // 4. Ładowanie przepisów
+  const { data: myRecipes, isLoading: recipesLoading } = useQuery({
+    queryKey: ["myRecipes"],
+    queryFn: async () => {
+      const response = await api.get("/recipes/private");
+      return response.data;
+    },
+    enabled: !!token && modalVisible,
   });
 
   if (!token) {
@@ -198,7 +241,7 @@ export default function PlannerScreen() {
                     backgroundColor: isSelected
                       ? isDark
                         ? "#444"
-                        : "#f0f0f0"
+                        : "#747272"
                       : theme.card,
                     borderColor: isSelected ? "#FF6347" : theme.border,
                     borderWidth: isSelected ? 2 : 1,
@@ -452,7 +495,9 @@ export default function PlannerScreen() {
                       </Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => handleDelete(item._id)}
+                      onPress={() =>
+                        handleDelete(item._id, item.date, item.recipe.title)
+                      }
                       style={styles.deleteButton}
                     >
                       <Ionicons
