@@ -111,12 +111,12 @@ router.get(
         return res.status(401).send("<h1>Błąd autoryzacji</h1>");
       }
 
+      // Pobieramy przepisy i dane autora (name zamiast username, bo tak masz w modelu)
       const pending = await Recipe.find({ status: "pending" }).populate(
         "author",
-        "username",
+        "name email",
       );
 
-      // Generowanie prostego HTML
       const html = `
         <!DOCTYPE html>
         <html>
@@ -124,44 +124,88 @@ router.get(
             <title>Panel Admina - Przepisy</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-              body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
-              .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-              .btn { background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-              .btn:hover { background: #45a049; }
-              .info { flex: 1; }
-              h1 { color: #333; }
-              .badge { background: #FF6347; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
+              .container { max-width: 900px; margin: 0 auto; }
+              .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+              .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+              .title { font-size: 1.5rem; font-weight: bold; color: #FF6347; }
+              .meta { font-size: 0.9rem; color: #666; margin-top: 5px; }
+              .content { margin: 15px 0; display: flex; gap: 20px; }
+              .details { flex: 2; }
+              .image-preview { flex: 1; }
+              .image-preview img { width: 100%; border-radius: 8px; object-fit: cover; max-height: 150px; }
+              .list-section { background: #fff9f8; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #FF6347; }
+              .btn { background: #28a745; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1rem; }
+              .btn:hover { background: #218838; }
+              .badge { background: #e9ecef; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8rem; }
             </style>
           </head>
           <body>
-            <h1>Przepisy oczekujące (${pending.length})</h1>
-            <div id="list">
-              ${pending
-                .map(
-                  (r) => `
-                <div class="card" id="card-${r._id}">
-                  <div class="info">
-                    <strong>${r.title}</strong> <span class="badge">pending</span><br>
-                    <small>Autor: ${r.author || "Anonim"}</small>
+            <div class="container">
+              <h1>Oczekujące przepisy (${pending.length})</h1>
+              <div id="list">
+                ${pending
+                  .map(
+                    (r: any) => `
+                  <div class="card" id="card-${r._id}">
+                    <div class="header">
+                      <div>
+                        <div class="title">${r.title}</div>
+                        <div class="meta">
+                          Autor: <strong>${r.author?.name || "Nieznany"}</strong> (${r.author?.email || "brak maila"})<br>
+                          Kuchnia: ${r.cuisine || "Nie podano"} | Diety: ${r.diet_type?.join(", ") || "brak"}
+                        </div>
+                      </div>
+                      <span class="badge">PENDING</span>
+                    </div>
+
+                    <div class="content">
+                      <div class="details">
+                        <p><i>${r.description || "Brak opisu"}</i></p>
+                        
+                        <div class="list-section">
+                          <strong>Składniki:</strong><br>
+                          ${r.ingredients.map((i: any) => `• ${i.name}: ${i.amount}${i.unit}`).join("<br>")}
+                        </div>
+
+                        <div class="list-section">
+                          <strong>Instrukcje:</strong><br>
+                          ${r.instructions.map((step: string, idx: number) => `${idx + 1}. ${step}`).join("<br>")}
+                        </div>
+                      </div>
+                      
+                      ${
+                        r.imageUrl
+                          ? `
+                        <div class="image-preview">
+                          <img src="${r.imageUrl}" alt="Recipe photo">
+                        </div>
+                      `
+                          : ""
+                      }
+                    </div>
+
+                    <button class="btn" onclick="approve('${r._id}')">Zatwierdź i publikuj</button>
                   </div>
-                  <button class="btn" onclick="approve('${r._id}')">Akceptuj</button>
-                </div>
-              `,
-                )
-                .join("")}
+                `,
+                  )
+                  .join("")}
+              </div>
             </div>
 
             <script>
               async function approve(id) {
                 if(!confirm('Czy na pewno chcesz opublikować ten przepis?')) return;
-                
                 try {
                   const res = await fetch(\`/api/recipes/admin/approve/\${id}?user=${user}&pass=${pass}\`, {
                     method: 'PATCH'
                   });
                   if(res.ok) {
-                    document.getElementById('card-' + id).style.display = 'none';
-                    alert('Opublikowano!');
+                    const card = document.getElementById('card-' + id);
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(100px)';
+                    setTimeout(() => card.remove(), 500);
                   } else {
                     alert('Błąd serwera');
                   }
@@ -182,7 +226,7 @@ router.get(
 );
 
 //!POST Add recipe [recipes_added]
-//http://localhost:7777/api/recipies/add
+//http://localhost:7777/api/recipes/add
 router.post(
   "/add",
   checkToken,
@@ -234,7 +278,7 @@ router.post(
 );
 
 //!DELETE Recipe by ID
-//http://localhost:7777/api/recipies/:id
+//http://localhost:7777/api/recipes/:id
 router.delete(
   "/:id",
   checkToken,
@@ -270,7 +314,7 @@ router.delete(
 );
 
 //!PATCH Recipe by ID - Verification
-//http://localhost:7777/api/recipies/:id
+//http://localhost:7777/api/recipes/:id
 router.patch(
   "/:id",
   checkToken,
