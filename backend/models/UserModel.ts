@@ -26,8 +26,6 @@ export interface IUser extends Document {
   password: string;
 
   recipes_added: Types.ObjectId[];
-  recipes_verify: Types.ObjectId[];
-  recipes_uploaded: Types.ObjectId[];
   recipes_liked: Types.ObjectId[];
 
   friends_requested: Types.ObjectId[];
