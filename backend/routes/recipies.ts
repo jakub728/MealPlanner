@@ -97,7 +97,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 });
 
 //? GET Pending Recipes [admin]
-//http://localhost:7777/api/recipes/admin/pending?user=ADMIN_USER&pass=ADMIN_PASSWORD
+//http://localhost:7777/api/recipes/admin/dashboard?user=ADMIN_USER&pass=ADMIN_PASSWORD
 router.get(
   "/admin/dashboard",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -303,7 +303,7 @@ router.patch(
 );
 
 //? PATCH Pending->Public Recipes [admin]
-//http://localhost:7777/api/recipes/admin/pending?user=ADMIN_USER&pass=ADMIN_PASSWORD
+//http://localhost:7777/api/recipes/admin/approve?user=ADMIN_USER&pass=ADMIN_PASSWORD
 router.patch(
   "/admin/approve/:id",
   async (req: Request, res: Response, next: NextFunction) => {
