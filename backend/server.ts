@@ -28,6 +28,7 @@ if (!process.env.JWT_SECRET) {
 //?MIDDLEWARE
 app.use(express.json());
 app.use(cors());
+app.use(express.urlencoded({ extended: true }));
 
 //!ROUTES
 app.use("/api/auth", AuthRoute);

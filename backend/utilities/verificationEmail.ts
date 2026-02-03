@@ -6,10 +6,8 @@ export const sendVerificationEmail = async (email: string, token: string) => {
   const url = `https://mealplanner-bg.up.railway.app/api/auth/verify/${token}`;
 
   try {
-    console.log(`Próba wysłania maila przez Resend do: ${email}`);
-
     await resend.emails.send({
-      from: "Meal Planner <noreply@mealplanner-onion.pl>",
+      from: " Onion Eats Meal Planner <noreply@mealplanner-onion.pl>",
       to: [email],
       subject: "Potwierdź swój adres e-mail",
       html: `
@@ -31,16 +29,14 @@ export const sendVerificationEmail = async (email: string, token: string) => {
               </p>
               <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
               <p style="font-size: 12px; color: #aaa;">
-                Wiadomość wygenerowana automatycznie przez Meal Planner Team
+                Wiadomość wygenerowana automatycznie przez Onion Eats Meal Planner Team
               </p>
             </div>
           </body>
         </html>`,
     });
 
-    console.log("Mail wysłany pomyślnie przez Resend!");
   } catch (error) {
-    console.error("BŁĄD RESEND:", error);
     throw error;
   }
 };
