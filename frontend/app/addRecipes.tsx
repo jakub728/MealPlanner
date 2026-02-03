@@ -7,12 +7,46 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Image,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 import LoginFirst from "@/components/loginFirst";
 import { useColorScheme } from "@/components/useColorScheme";
+import Colors from "@/constants/Colors";
+
+const CUISINES = [
+  "Włoska",
+  "Polska",
+  "Azjatycka",
+  "Meksykańska",
+  "Francuska",
+  "Amerykańska",
+  "Hinduska",
+  "Śródziemnomorska",
+  "Chińska",
+  "Japońska",
+  "Tajska",
+  "Grecka",
+  "Hiszpańska",
+  "Turecka",
+  "Marokańska",
+  "Wietnamska",
+  "Koreańska",
+];
+
+const DIET_TYPES = [
+  "Wegetariańska",
+  "Wegańska",
+  "Bezglutenowa",
+  "Keto",
+  "Low Carb",
+  "Bez laktozy",
+  "Wysokobiałkowa",
+];
 
 const UNITS = ["g", "ml", "szt", "tbs", "tsp"];
 
@@ -30,40 +64,30 @@ export default function AddRecipesScreen() {
   const [unit, setUnit] = useState("g");
   const [showUnits, setShowUnits] = useState(false);
 
+  const [image, setImage] = useState<string | null>(null);
+  const [selectedCuisine, setSelectedCuisine] = useState<string>("");
+  const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
+
   const queryClient = useQueryClient();
   const { token } = useAuthStore((state) => state);
 
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const colorScheme = useColorScheme() ?? "light";
+  const theme = Colors[colorScheme];
 
-  const theme = {
-    bg: isDark ? "#121212" : "#F8F9FA",
-    cardBg: isDark ? "#1E1E1E" : "#fff",
-    text: isDark ? "#fff" : "#333",
-    inputBg: isDark ? "#2A2A2A" : "#fff",
-    inputBorder: isDark ? "#444" : "#ddd",
-    placeholder: isDark ? "#888" : "#aaa",
-    sectionBg: isDark ? "#1E1E1E" : "#f8f9fa",
-  };
-
-  // 1. ADD INGREDIENT
   const addIngredientLocally = () => {
     const parsedAmount = parseFloat(amount);
     if (!ingredientName.trim() || isNaN(parsedAmount) || parsedAmount <= 0) {
       Alert.alert("Błąd", "Podaj poprawną nazwę i ilość");
       return;
     }
-    const newEntry = {
-      name: ingredientName.trim(),
-      amount: parsedAmount,
-      unit: unit,
-    };
-    setSelectedIngredients([...selectedIngredients, newEntry]);
+    setSelectedIngredients([
+      ...selectedIngredients,
+      { name: ingredientName.trim(), amount: parsedAmount, unit },
+    ]);
     setIngredientName("");
     setAmount("");
   };
 
-  // 2. ADD STEP (Nowa funkcja dla instrukcji)
   const addStepLocally = () => {
     if (currentStep.trim().length < 5) {
       Alert.alert("Błąd", "Krok musi mieć co najmniej 5 znaków");
@@ -73,18 +97,27 @@ export default function AddRecipesScreen() {
     setCurrentStep("");
   };
 
-  const removeStep = (index: number) => {
-    setInstructionsList(instructionsList.filter((_, i) => i !== index));
+  const toggleDiet = (diet: string) => {
+    setSelectedDiets((prev) =>
+      prev.includes(diet) ? prev.filter((d) => d !== diet) : [...prev, diet],
+    );
   };
 
   const mutation = useMutation({
-    mutationFn: (newRecipe: any) => api.post("/recipes/add", newRecipe),
+    mutationFn: (formData: FormData) =>
+      api.post("/recipes/add", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }),
     onSuccess: () => {
-      Alert.alert("Sukces!", "Przepis zapisany.");
+      Alert.alert("Sukces", "Przepis został dodany");
       setTitle("");
       setDescription("");
       setInstructionsList([]);
       setSelectedIngredients([]);
+      setImage(null);
+      setSelectedDiets([]);
+      setSelectedCuisine("");
+      setSwitchDescription(false);
       queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
     },
     onError: (error: any) => {
@@ -93,353 +126,558 @@ export default function AddRecipesScreen() {
   });
 
   const handleAddRecipe = () => {
-    if (selectedIngredients.length === 0) {
-      Alert.alert("Błąd", "Dodaj składniki");
+    if (
+      !title.trim() ||
+      selectedIngredients.length === 0 ||
+      instructionsList.length === 0
+    ) {
+      Alert.alert("Błąd", "Uzupełnij wymagane pola (tytuł, składniki, kroki)");
       return;
     }
-    if (instructionsList.length === 0) {
-      Alert.alert("Błąd", "Dodaj chociaż jeden krok instrukcji");
+
+    const formData = new FormData();
+    if (image) {
+      const filename = image.split("/").pop() || "photo.jpg";
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
+      // @ts-ignore
+      formData.append("image", { uri: image, name: filename, type });
+    }
+
+    formData.append("title", title.trim());
+    formData.append("description", description.trim());
+    formData.append("ingredients", JSON.stringify(selectedIngredients));
+    formData.append("instructions", JSON.stringify(instructionsList));
+    formData.append(
+      "cuisine",
+      JSON.stringify(selectedCuisine ? [selectedCuisine] : []),
+    );
+    formData.append("diet_type", JSON.stringify(selectedDiets));
+    formData.append("status", "private");
+
+    mutation.mutate(formData);
+  };
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Błąd", "Brak uprawnień do galerii!");
       return;
     }
-
-    const recipeData: any = {
-      title: title.trim(),
-      ingredients: selectedIngredients,
-      instructions: instructionsList,
-      status: "private",
-    };
-
-    if (description && description.trim() !== "") {
-      recipeData.description = description.trim();
-    }
-
-    mutation.mutate(recipeData);
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+    if (!result.canceled) setImage(result.assets[0].uri);
   };
 
   if (!token) return <LoginFirst />;
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.bg }]}>
-      <Text style={[styles.header, { color: theme.text }]}>
-        Dodaj nowy przepis
-      </Text>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
+        <Text style={[styles.header, { color: theme.text }]}>
+          Dodaj nowy przepis
+        </Text>
 
-      <TextInput
-        style={[
-          styles.input,
-          {
-            backgroundColor: theme.inputBg,
-            borderColor: theme.inputBorder,
-            color: theme.text,
-          },
-        ]}
-        placeholder="Tytuł"
-        placeholderTextColor={theme.placeholder}
-        value={title}
-        onChangeText={setTitle}
-      />
-
-      {/* PRZYCISK OPISU - Logika poprawiona */}
-      {!switchDescription ? (
-        <TouchableOpacity
-          style={[
-            styles.input,
-            {
-              backgroundColor: theme.inputBg,
-              borderColor: theme.inputBorder,
-              justifyContent: "center",
-              borderStyle: "dashed",
-            },
-          ]}
-          onPress={() => setSwitchDescription(true)}
-        >
-          <Text
-            style={{
-              color: "#FF6347",
-              fontWeight: "bold",
-              textAlign: "center",
-            }}
-          >
-            + Dodaj opis (opcjonalnie)
-          </Text>
-        </TouchableOpacity>
-      ) : (
         <TextInput
           style={[
             styles.input,
             {
-              height: 80,
               backgroundColor: theme.inputBg,
-              borderColor: theme.inputBorder,
+              borderColor: theme.border,
               color: theme.text,
             },
           ]}
-          placeholder="Opis przepisu..."
+          placeholder="Tytuł"
           placeholderTextColor={theme.placeholder}
-          multiline
-          autoFocus
-          value={description}
-          onChangeText={setDescription}
+          value={title}
+          onChangeText={setTitle}
         />
-      )}
 
-      {/* SEKCJA SKŁADNIKÓW */}
-      <View
-        style={[
-          styles.section,
-          {
-            backgroundColor: theme.sectionBg,
-            borderColor: theme.inputBorder,
-            zIndex: 10,
-          },
-        ]}
-      >
-        <Text style={[styles.label, { color: theme.text }]}>Składniki:</Text>
-        <View style={styles.row}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                flex: 2,
-                marginBottom: 0,
-                backgroundColor: theme.inputBg,
-                borderColor: theme.inputBorder,
-                color: theme.text,
-              },
-            ]}
-            placeholder="Nazwa"
-            placeholderTextColor={theme.placeholder}
-            value={ingredientName}
-            onChangeText={setIngredientName}
-          />
-          <TextInput
-            style={[
-              styles.input,
-              {
-                flex: 1,
-                marginBottom: 0,
-                backgroundColor: theme.inputBg,
-                borderColor: theme.inputBorder,
-                color: theme.text,
-              },
-            ]}
-            placeholder="Ilość"
-            placeholderTextColor={theme.placeholder}
-            keyboardType="numeric"
-            value={amount}
-            onChangeText={setAmount}
-          />
+        {!switchDescription ? (
           <TouchableOpacity
             style={[
-              styles.unitButton,
+              styles.input,
               {
                 backgroundColor: theme.inputBg,
-                borderColor: theme.inputBorder,
+                borderColor: theme.tint,
+                borderStyle: "dashed",
+                justifyContent: "center",
               },
             ]}
-            onPress={() => setShowUnits(!showUnits)}
+            onPress={() => setSwitchDescription(true)}
           >
-            <Text style={[styles.unitButtonText, { color: theme.text }]}>
-              {unit}
+            <Text
+              style={{
+                color: theme.tint,
+                fontWeight: "bold",
+                textAlign: "center",
+              }}
+            >
+              + Dodaj opis (opcjonalnie)
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={addIngredientLocally}
-            style={styles.miniButton}
-          >
-            <Text style={{ color: "white", fontWeight: "bold" }}>+</Text>
-          </TouchableOpacity>
+        ) : (
+          <TextInput
+            style={[
+              styles.input,
+              {
+                height: 80,
+                backgroundColor: theme.inputBg,
+                borderColor: theme.border,
+                color: theme.text,
+              },
+            ]}
+            placeholder="Opis przepisu..."
+            placeholderTextColor={theme.placeholder}
+            multiline
+            value={description}
+            onChangeText={setDescription}
+          />
+        )}
+
+        {/* SEKCJA ZDJĘCIA Z PODGLĄDEM */}
+        <View style={styles.imageSection}>
+          {!image ? (
+            <TouchableOpacity
+              onPress={pickImage}
+              style={[
+                styles.imagePicker,
+                { backgroundColor: theme.inputBg, borderColor: theme.tint },
+              ]}
+            >
+              <Text style={{ color: theme.tint, fontWeight: "bold" }}>
+                + Dodaj zdjęcie przepisu
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.previewContainer}>
+              <Image source={{ uri: image }} style={styles.previewImage} />
+              <TouchableOpacity
+                style={styles.removeImageButton}
+                onPress={() => setImage(null)}
+              >
+                <Text
+                  style={{ color: "white", fontWeight: "bold", fontSize: 12 }}
+                >
+                  X
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={pickImage}
+                style={[
+                  styles.changeImageOverlay,
+                  { backgroundColor: "rgba(0,0,0,0.4)" },
+                ]}
+              >
+                <Text style={{ color: "white", fontSize: 12 }}>
+                  Zmień zdjęcie
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        {showUnits && (
-          <View
-            style={[
-              styles.unitsDropdown,
-              { backgroundColor: theme.cardBg, borderColor: theme.inputBorder },
-            ]}
-          >
-            {UNITS.map((u) => (
-              <TouchableOpacity
-                key={u}
+        {/* SKŁADNIKI */}
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.label, { color: theme.text }]}>Składniki:</Text>
+          <View style={styles.row}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  flex: 2,
+                  marginBottom: 0,
+                  backgroundColor: theme.inputBg,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+              placeholder="Nazwa"
+              placeholderTextColor={theme.placeholder}
+              value={ingredientName}
+              onChangeText={setIngredientName}
+            />
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  flex: 1,
+                  marginBottom: 0,
+                  backgroundColor: theme.inputBg,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+              placeholder="Ilość"
+              placeholderTextColor={theme.placeholder}
+              keyboardType="numeric"
+              value={amount}
+              onChangeText={setAmount}
+            />
+            <TouchableOpacity
+              style={[
+                styles.unitButton,
+                { backgroundColor: theme.inputBg, borderColor: theme.border },
+              ]}
+              onPress={() => setShowUnits(!showUnits)}
+            >
+              <Text style={{ color: theme.text }}>{unit}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={addIngredientLocally}
+              style={[styles.miniButton, { backgroundColor: "#4CAF50" }]}
+            >
+              <Text style={{ color: "white", fontWeight: "bold" }}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {showUnits && (
+            <View
+              style={[
+                styles.unitsDropdown,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              {UNITS.map((u) => (
+                <TouchableOpacity
+                  key={u}
+                  style={styles.unitItem}
+                  onPress={() => {
+                    setUnit(u);
+                    setShowUnits(false);
+                  }}
+                >
+                  <Text style={{ color: theme.text }}>{u}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          <View style={{ marginTop: 15 }}>
+            {selectedIngredients.map((item, index) => (
+              <View
+                key={index}
                 style={[
-                  styles.unitItem,
-                  { borderBottomColor: theme.inputBorder },
+                  styles.addedItem,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.background,
+                  },
                 ]}
-                onPress={() => {
-                  setUnit(u);
-                  setShowUnits(false);
-                }}
               >
-                <Text style={{ color: theme.text }}>{u}</Text>
+                <Text style={{ color: theme.text }}>
+                  • {item.name} ({item.amount}
+                  {item.unit})
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    setSelectedIngredients(
+                      selectedIngredients.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  <Text style={{ color: theme.tint, fontWeight: "600" }}>
+                    Usuń
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* INSTRUKCJE */}
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.label, { color: theme.text }]}>
+            Kroki przygotowania:
+          </Text>
+          <View style={styles.row}>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  flex: 1,
+                  marginBottom: 0,
+                  backgroundColor: theme.inputBg,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
+              ]}
+              placeholder="Opisz krok..."
+              placeholderTextColor={theme.placeholder}
+              value={currentStep}
+              onChangeText={setCurrentStep}
+              multiline
+            />
+            <TouchableOpacity
+              onPress={addStepLocally}
+              style={[styles.miniButton, { backgroundColor: "#2196F3" }]}
+            >
+              <Text style={{ color: "white", fontWeight: "bold" }}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ marginTop: 15 }}>
+            {instructionsList.map((step, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.addedItem,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.background,
+                  },
+                ]}
+              >
+                <Text style={{ flex: 1, color: theme.text, marginRight: 10 }}>
+                  <Text style={{ fontWeight: "bold", color: theme.tint }}>
+                    {index + 1}.
+                  </Text>{" "}
+                  {step}
+                </Text>
+                <TouchableOpacity
+                  onPress={() =>
+                    setInstructionsList(
+                      instructionsList.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  <Text style={{ color: theme.tint, fontWeight: "600" }}>
+                    Usuń
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* KUCHNIA - WRAP LAYOUT */}
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.label, { color: theme.text }]}>
+            Rodzaj kuchni:
+          </Text>
+          <View style={styles.chipContainer}>
+            {CUISINES.map((c) => (
+              <TouchableOpacity
+                key={c}
+                onPress={() =>
+                  setSelectedCuisine(c === selectedCuisine ? "" : c)
+                }
+                style={[
+                  styles.chip,
+                  { borderColor: theme.border, backgroundColor: theme.inputBg },
+                  selectedCuisine === c && {
+                    backgroundColor: theme.tint,
+                    borderColor: theme.tint,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: theme.text },
+                    selectedCuisine === c && {
+                      color: "#fff",
+                      fontWeight: "bold",
+                    },
+                  ]}
+                >
+                  {c}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
-        )}
-
-        {selectedIngredients.map((item, index) => (
-          <View
-            key={index}
-            style={[styles.addedItem, { borderBottomColor: theme.inputBorder }]}
-          >
-            <Text style={{ color: theme.text }}>
-              • {item.name} ({item.amount}
-              {item.unit})
-            </Text>
-            <TouchableOpacity
-              onPress={() =>
-                setSelectedIngredients(
-                  selectedIngredients.filter((_, i) => i !== index),
-                )
-              }
-            >
-              <Text style={{ color: "#FF6347" }}>Usuń</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-      </View>
-
-      {/* SEKCJA INSTRUKCJI */}
-      <View
-        style={[
-          styles.section,
-          { backgroundColor: theme.sectionBg, borderColor: theme.inputBorder },
-        ]}
-      >
-        <Text style={[styles.label, { color: theme.text }]}>
-          Kroki przygotowania:
-        </Text>
-        <View style={styles.row}>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                flex: 1,
-                marginBottom: 0,
-                backgroundColor: theme.inputBg,
-                borderColor: theme.inputBorder,
-                color: theme.text,
-              },
-            ]}
-            placeholder="Opisz krok..."
-            placeholderTextColor={theme.placeholder}
-            value={currentStep}
-            onChangeText={setCurrentStep}
-            multiline
-          />
-          <TouchableOpacity
-            onPress={addStepLocally}
-            style={[styles.miniButton, { backgroundColor: "#2196F3" }]}
-          >
-            <Text style={{ color: "white", fontWeight: "bold" }}>+</Text>
-          </TouchableOpacity>
         </View>
 
-        {instructionsList.map((step, index) => (
-          <View
-            key={index}
-            style={[styles.addedItem, { borderBottomColor: theme.inputBorder }]}
-          >
-            <Text style={{ flex: 1, color: theme.text }}>
-              <Text style={{ fontWeight: "bold", color: "#FF6347" }}>
-                {index + 1}.
-              </Text>{" "}
-              {step}
-            </Text>
-            <TouchableOpacity onPress={() => removeStep(index)}>
-              <Text style={{ color: "#FF6347", marginLeft: 10 }}>Usuń</Text>
-            </TouchableOpacity>
+        {/* DIETY - WRAP LAYOUT */}
+        <View
+          style={[
+            styles.section,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
+          <Text style={[styles.label, { color: theme.text }]}>Typ diety:</Text>
+          <View style={styles.chipContainer}>
+            {DIET_TYPES.map((d) => (
+              <TouchableOpacity
+                key={d}
+                onPress={() => toggleDiet(d)}
+                style={[
+                  styles.chip,
+                  { borderColor: theme.border, backgroundColor: theme.inputBg },
+                  selectedDiets.includes(d) && {
+                    backgroundColor: theme.tint,
+                    borderColor: theme.tint,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: theme.text },
+                    selectedDiets.includes(d) && {
+                      color: "#fff",
+                      fontWeight: "bold",
+                    },
+                  ]}
+                >
+                  {d}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        ))}
-      </View>
+        </View>
 
-      <TouchableOpacity
-        style={[
-          styles.button,
-          mutation.isPending && { backgroundColor: "#666" },
-        ]}
-        onPress={handleAddRecipe}
-        disabled={mutation.isPending}
-      >
-        <Text style={styles.buttonText}>
-          {mutation.isPending ? "Wysyłanie..." : "Zapisz przepis"}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            { backgroundColor: theme.tint },
+            mutation.isPending && { backgroundColor: theme.subText },
+          ]}
+          onPress={handleAddRecipe}
+          disabled={mutation.isPending}
+        >
+          <Text style={styles.buttonText}>
+            {mutation.isPending ? "Wysyłanie..." : "Zapisz przepis"}
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#fff" },
-  header: { fontSize: 22, fontWeight: "bold", marginBottom: 20, marginTop: 20 },
+  container: { flex: 1, paddingHorizontal: 20 },
+  header: { fontSize: 24, fontWeight: "bold", marginBottom: 20, marginTop: 10 },
   input: {
     borderWidth: 1,
-    borderColor: "#ddd",
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-    textAlignVertical: "top",
-  },
-  button: {
-    backgroundColor: "#FF6347",
-    padding: 15,
-    borderRadius: 8,
-    alignItems: "center",
-    marginBottom: 50,
-  },
-  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  section: {
-    backgroundColor: "#f8f9fa",
-    padding: 15,
     borderRadius: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#eee",
-    zIndex: 2,
+    marginBottom: 15,
+    fontSize: 15,
   },
-  label: { fontSize: 16, fontWeight: "bold", marginBottom: 10, color: "#333" },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  section: { padding: 16, borderRadius: 16, marginBottom: 20, borderWidth: 1 },
+  label: { fontSize: 16, fontWeight: "bold", marginBottom: 12 },
+  row: { flexDirection: "row", alignItems: "center", gap: 10 },
   miniButton: {
-    backgroundColor: "#4CAF50",
     width: 45,
     height: 45,
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   addedItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    alignItems: "center",
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderRadius: 12,
   },
   unitButton: {
     height: 45,
-    width: 45,
+    width: 50,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
-  unitButtonText: { fontWeight: "bold" },
   unitsDropdown: {
     position: "absolute",
-    top: 100,
+    top: 80,
     left: 15,
     right: 15,
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    zIndex: 10,
+    borderRadius: 12,
+    zIndex: 100,
     elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  unitItem: {
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+  unitItem: { padding: 14, alignItems: "center" },
+  imagePicker: {
+    padding: 25,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+  },
+  chipContainer: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  chipText: { fontSize: 13 },
+  button: {
+    padding: 18,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 40,
+  },
+  buttonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  imageSection: {
+    marginBottom: 20,
+  },
+
+  previewContainer: {
+    width: "100%",
+    height: 200,
+    borderRadius: 16,
+    overflow: "hidden",
+    position: "relative",
+  },
+  previewImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  removeImageButton: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: "rgba(255, 99, 71, 0.9)", // Twój primaryOrange
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  changeImageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingVertical: 8,
     alignItems: "center",
   },
 });

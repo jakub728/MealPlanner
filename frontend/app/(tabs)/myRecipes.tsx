@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,18 +7,19 @@ import {
   TouchableOpacity,
   RefreshControl,
   useColorScheme,
-  Alert,
+  ImageBackground,
 } from "react-native";
 import { useAuthStore } from "@/store/useAuthStore";
 import LoginFirst from "@/components/loginFirst";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "@/constants/Colors";
+import { LinearGradient } from "expo-linear-gradient";
 
-const getRecipeNoun = (count: number) => {
+const getRecipeSaved = (count: number) => {
   if (count === 1) return "zapisaną recepturę";
   const lastDigit = count % 10;
   const lastTwoDigits = count % 100;
@@ -32,6 +33,20 @@ const getRecipeNoun = (count: number) => {
   return "zapisanych receptur";
 };
 
+const getRecipeLiked = (count: number) => {
+  if (count === 1) return "polubioną recepturę";
+  const lastDigit = count % 10;
+  const lastTwoDigits = count % 100;
+  if (
+    lastDigit >= 2 &&
+    lastDigit <= 4 &&
+    (lastTwoDigits < 10 || lastTwoDigits >= 20)
+  ) {
+    return "polubione receptury";
+  }
+  return "polubionych receptur";
+};
+
 const getStatusConfig = (status: string) => {
   switch (status) {
     case "public":
@@ -39,150 +54,72 @@ const getStatusConfig = (status: string) => {
     case "pending":
       return { icon: "time-outline", color: "#FF9800", label: "Oczekujący" };
     default:
-      return {
-        icon: "lock-closed-outline",
-        color: "#9E9E9E",
-        label: "Prywatny",
-      };
+      return { icon: "lock-closed-outline", color: "#fff", label: "Prywatny" };
   }
 };
 
 export default function MyRecipesScreen() {
-  const { token } = useAuthStore((state) => state);
+  const [activeTab, setActiveTab] = useState<"added" | "liked">("added");
+  const { token } = useAuthStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
-
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
-  const isDark = colorScheme === "dark";
 
+  // Pobieranie danych
   const {
-    data: recipes,
-    isLoading,
-    isRefetching,
-    refetch,
+    data: myRecipes,
+    isLoading: loadingAdded,
+    refetch: refetchAdded,
   } = useQuery({
     queryKey: ["myRecipes"],
-    queryFn: async () => {
-      const response = await api.get("/recipes/private");
-      return response.data;
-    },
+    queryFn: async () => (await api.get("/recipes/private")).data,
     enabled: !!token,
   });
 
-  // MUTACJA USUWANIA
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return api.delete(`/recipes/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
-      Alert.alert("Sukces", "Przepis został usunięty");
-    },
-    onError: () => {
-      Alert.alert("Błąd", "Nie udało się usunąć przepisu");
-    },
+  const {
+    data: likedRecipes,
+    isLoading: loadingLiked,
+    refetch: refetchLiked,
+  } = useQuery({
+    queryKey: ["likedRecipes"],
+    queryFn: async () => (await api.get("/recipes/liked")).data,
+    enabled: !!token,
   });
 
-  const handleDeletePress = (id: string, title: string) => {
-    Alert.alert(
-      "Usuń przepis",
-      `Czy na pewno chcesz trwale usunąć "${title}"?`,
-      [
-        { text: "Anuluj", style: "cancel" },
-        {
-          text: "Usuń",
-          style: "destructive",
-          onPress: () => deleteMutation.mutate(id),
-        },
-      ],
-    );
-  };
+  if (!token) return <LoginFirst placeholder=" aby zobaczyć swoje przepisy" />;
 
-  if (!token) {
-    return <LoginFirst placeholder=" aby zobaczyć swoje przepisy" />;
-  }
+  const currentData = (activeTab === "added" ? myRecipes : likedRecipes) || [];
+  const isLoading = activeTab === "added" ? loadingAdded : loadingLiked;
 
   const renderRecipeItem = ({ item }: { item: any }) => {
     const statusCfg = getStatusConfig(item.status);
 
     return (
       <TouchableOpacity
-        style={[styles.recipeCard, { backgroundColor: theme.card }]}
-        activeOpacity={0.8}
+        activeOpacity={0.9}
         onPress={() =>
           router.push({ pathname: "/recipeDetail", params: { id: item._id } })
         }
       >
-        <View style={styles.cardContent}>
-          <View style={styles.headerRow}>
-            <Text
-              style={[styles.recipeTitle, { color: theme.text }]}
-              numberOfLines={1}
-            >
-              {item.title}
-            </Text>
-            <TouchableOpacity
-              style={styles.deleteCircle}
-              onPress={() => handleDeletePress(item._id, item.title)}
-            >
-              <Ionicons name="close" size={12} color="white" />
-            </TouchableOpacity>
-          </View>
-
-          <Text
-            style={[styles.description, { color: theme.subText }]}
-            numberOfLines={2}
-          >
-            {item.description || "Brak opisu..."}
-          </Text>
-
-          {/* SEKCJA SKŁADNIKÓW (WIDOCZNA) */}
-          <View style={styles.visibleSection}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="restaurant-outline" size={14} color="#FF6347" />
-              <Text style={[styles.sectionLabel, { color: theme.text }]}>
-                Składniki:
-              </Text>
-            </View>
-            <Text
-              style={[styles.sectionContent, { color: theme.subText }]}
-              numberOfLines={1}
-            >
-              {item.ingredients
-                ?.map((ing: any) => ing.name || ing)
-                .join(" • ") || "Brak danych"}
-            </Text>
-          </View>
-
-          {/* SEKCJA KROKÓW (WIDOCZNA) */}
-          <View style={styles.visibleSection}>
-            <View style={styles.sectionTitleRow}>
-              <Ionicons name="list-outline" size={14} color="#FF6347" />
-              <Text style={[styles.sectionLabel, { color: theme.text }]}>
-                Przygotowanie:
-              </Text>
-            </View>
-            <Text
-              style={[styles.sectionContent, { color: theme.subText }]}
-              numberOfLines={2}
-            >
-              {item.instructions
-                ?.map(
-                  (inst: any, index: number) =>
-                    `${index + 1}. ${inst.text || inst}`,
-                )
-                .join(" ") || "Brak kroków"}
-            </Text>
-          </View>
-
-          <View style={styles.footer}>
+        <ImageBackground
+          source={{ uri: item.imageUrl || "https://via.placeholder.com/400" }}
+          style={styles.recipeCard}
+          imageStyle={styles.cardImage}
+        >
+          {/* Status Badge - teraz na samej górze karty */}
+          <View style={styles.topRow}>
             <View
-              style={[styles.statusBadge, { borderColor: statusCfg.color }]}
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  borderColor: statusCfg.color,
+                },
+              ]}
             >
               <Ionicons
                 name={statusCfg.icon as any}
-                size={12}
+                size={10}
                 color={statusCfg.color}
               />
               <Text style={[styles.statusText, { color: statusCfg.color }]}>
@@ -190,13 +127,23 @@ export default function MyRecipesScreen() {
               </Text>
             </View>
           </View>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={18}
-          color={theme.subText}
-          style={{ marginLeft: 8 }}
-        />
+
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.9)"]}
+            style={styles.gradient}
+          >
+            <View style={styles.cardContent}>
+              <Text style={styles.recipeTitle} numberOfLines={1}>
+                {item.title}
+              </Text>
+              <Text style={styles.ingredientsPreview} numberOfLines={1}>
+                {item.ingredients
+                  ?.map((ing: any) => ing.name || ing)
+                  .join(" • ")}
+              </Text>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
       </TouchableOpacity>
     );
   };
@@ -206,30 +153,74 @@ export default function MyRecipesScreen() {
       style={[styles.container, { backgroundColor: theme.background }]}
       edges={["top"]}
     >
-      <View
-        style={[
-          styles.header,
-          {
-            borderBottomColor: theme.border,
-            borderBottomWidth: isDark ? 0.5 : 0,
-          },
-        ]}
-      >
-        <Text style={[styles.title, { color: theme.text }]}>Moje przepisy</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>
+          {activeTab === "added" ? "Moje przepisy" : "Polubione"}
+        </Text>
         <Text style={[styles.subtitle, { color: theme.subText }]}>
-          Masz {recipes?.length || 0} {getRecipeNoun(recipes?.length || 0)}
+          Masz {currentData?.length || 0}{" "}
+          {activeTab === "added"
+            ? getRecipeSaved(currentData?.length || 0)
+            : getRecipeLiked(currentData?.length || 0)}
         </Text>
       </View>
 
+      <View
+        style={[
+          styles.tabContainer,
+          { backgroundColor: colorScheme === "dark" ? "#333" : "#f0f0f0" },
+        ]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === "added" && [
+              styles.activeTab,
+              { backgroundColor: theme.card },
+            ],
+          ]}
+          onPress={() => setActiveTab("added")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "added" && styles.activeTabText,
+            ]}
+          >
+            Moje
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === "liked" && [
+              styles.activeTab,
+              { backgroundColor: theme.card },
+            ],
+          ]}
+          onPress={() => setActiveTab("liked")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "liked" && styles.activeTabText,
+            ]}
+          >
+            Polubione
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
-        data={recipes}
+        data={currentData}
         keyExtractor={(item) => item._id}
         renderItem={renderRecipeItem}
         contentContainerStyle={styles.listPadding}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading || isRefetching}
-            onRefresh={refetch}
+            refreshing={isLoading}
+            onRefresh={activeTab === "added" ? refetchAdded : refetchLiked}
             tintColor="#FF6347"
           />
         }
@@ -238,124 +229,95 @@ export default function MyRecipesScreen() {
             <View style={styles.emptyState}>
               <Ionicons name="receipt-outline" size={60} color={theme.border} />
               <Text style={[styles.emptyText, { color: theme.subText }]}>
-                Nie dodałeś jeszcze przepisów.
+                {activeTab === "added"
+                  ? "Nie dodałeś jeszcze przepisów."
+                  : "Nie masz polubionych przepisów."}
               </Text>
             </View>
           ) : null
         }
       />
 
-      <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.8}
-        onPress={() => router.push("/addRecipes")}
-      >
-        <Ionicons name="add" size={30} color="#fff" />
-        <Text style={styles.fabText}>Dodaj</Text>
-      </TouchableOpacity>
+      {activeTab === "added" && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push("/addRecipes")}
+        >
+          <Ionicons name="add" size={30} color="#fff" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingVertical: 20, alignItems: "center" },
+  header: { paddingHorizontal: 20, paddingVertical: 15, alignItems: "center" },
   title: { fontSize: 28, fontWeight: "bold" },
   subtitle: { fontSize: 14, marginTop: 4 },
+  tabContainer: {
+    flexDirection: "row",
+    marginHorizontal: 20,
+    borderRadius: 15,
+    padding: 4,
+    marginBottom: 15,
+  },
+  tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 12 },
+  activeTab: {
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  tabText: { fontWeight: "600", color: "#888" },
+  activeTabText: { color: "#FF6347" },
   listPadding: { padding: 20, paddingBottom: 120 },
   recipeCard: {
+    height: 200,
     borderRadius: 20,
-    marginBottom: 16,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    // Cienie
+    marginBottom: 20,
+    overflow: "hidden",
+    elevation: 5,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
-  cardContent: { flex: 1 },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
+  cardImage: { borderRadius: 20 },
+  gradient: { flex: 1, justifyContent: "flex-end", padding: 16 },
+  cardContent: { width: "100%" },
+  topRow: { position: "absolute", top: 12, left: 12 },
+  recipeTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff",
+    textShadowColor: "rgba(0, 0, 0, 0.75)",
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 5,
   },
-  recipeTitle: { fontSize: 18, fontWeight: "bold", flex: 1, marginRight: 10 },
-  deleteCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: "#FF3B30", // Intensywny czerwony (iOS style)
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: -2,
-  },
-  description: { fontSize: 14, lineHeight: 20, marginBottom: 12 },
-  footer: {
-    flexDirection: "row",
-    marginTop: 12,
-    justifyContent: "flex-start",
-  },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-  },
-  tagText: { fontSize: 11, color: "#FF6347", fontWeight: "700" },
+  ingredientsPreview: { fontSize: 13, color: "#e0e0e0", marginTop: 4 },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
     gap: 4,
   },
-  statusText: { fontSize: 9, fontWeight: "800", textTransform: "uppercase" },
+  statusText: { fontSize: 10, fontWeight: "bold", textTransform: "uppercase" },
   fab: {
     position: "absolute",
     bottom: 30,
     right: 20,
     backgroundColor: "#FF6347",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    borderRadius: 35,
-    elevation: 10,
-    gap: 6,
-  },
-  fabText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
-  emptyState: {
-    alignItems: "center",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: "center",
-    marginTop: 100,
-  },
-  emptyText: { marginTop: 10, fontSize: 16 },
-  visibleSection: {
-    marginTop: 8,
-    backgroundColor: "rgba(0,0,0,0.02)", // Bardzo delikatne tło dla kontrastu
-    padding: 8,
-    borderRadius: 10,
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 2,
+    elevation: 10,
   },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  sectionContent: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
+  emptyState: { alignItems: "center", justifyContent: "center", marginTop: 60 },
+  emptyText: { marginTop: 10, fontSize: 16 },
 });

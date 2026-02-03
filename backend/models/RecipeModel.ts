@@ -20,9 +20,12 @@ export const RecipeValidationSchema = z.object({
   instructions: z
     .array(z.string().min(5, "Instruction step is too short"))
     .min(1, "Recipe must have steps"),
+  status: z.enum(["private", "pending", "public"]).optional(),
   imageUrl: z.string().url("Invalid image URL").optional(),
   diet_type: z.array(z.string()).optional(),
   cuisine: z.string().optional(),
+  comments: z.array(z.string()).optional(),
+  note: z.array(z.number().min(1, "Min 1").max(5, "Max 5")).optional(),
 });
 
 export interface IRecipe extends Document {
@@ -39,6 +42,8 @@ export interface IRecipe extends Document {
   imageUrl?: string;
   diet_type?: string[];
   cuisine?: string;
+  comments?: string[];
+  note?: number[];
   createdAt: Date;
 }
 
@@ -63,6 +68,8 @@ const recipeSchema = new Schema<IRecipe>(
     imageUrl: { type: String, default: null },
     diet_type: { type: [String], default: [] },
     cuisine: { type: String, default: "" },
+    comments: { type: [String], default: [] },
+    note: { type: [Number], default: [] },
   },
   { timestamps: true },
 );

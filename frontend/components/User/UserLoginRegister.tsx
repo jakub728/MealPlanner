@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { api } from "../../api/client";
 import { useAuthStore } from "../../store/useAuthStore";
+import Colors from "../../constants/Colors";
 
 export default function UserLoginRegisterComponent() {
   const [isLogin, setIsLogin] = useState(true);
@@ -24,16 +25,9 @@ export default function UserLoginRegisterComponent() {
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? "light";
+  const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
-
-  const theme = {
-    bg: isDark ? "#121212" : "#fff",
-    text: isDark ? "#fff" : "#333",
-    subText: isDark ? "#aaa" : "#666",
-    placeholder: isDark ? "#888" : "#aaa",
-    iconBg: isDark ? "rgba(255, 99, 71, 0.15)" : "#FFF5F3",
-  };
 
   const handleAuth = async () => {
     try {
@@ -55,7 +49,7 @@ export default function UserLoginRegisterComponent() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: theme.bg }}
+      style={{ flex: 1, backgroundColor: theme.background }}
     >
       <View style={styles.container}>
         <Text style={[styles.title, { color: theme.text }]}>
@@ -66,7 +60,7 @@ export default function UserLoginRegisterComponent() {
           <TextInput
             style={[
               styles.input,
-              { backgroundColor: theme.bg, color: theme.text },
+              { backgroundColor: theme.background, color: theme.text },
             ]}
             placeholder="Imię"
             placeholderTextColor={theme.placeholder}
@@ -81,7 +75,7 @@ export default function UserLoginRegisterComponent() {
           ref={emailRef}
           style={[
             styles.input,
-            { backgroundColor: theme.bg, color: theme.text },
+            { backgroundColor: theme.background, color: theme.text },
           ]}
           placeholder="Email"
           placeholderTextColor={theme.placeholder}
@@ -97,14 +91,14 @@ export default function UserLoginRegisterComponent() {
           ref={passwordRef}
           style={[
             styles.input,
-            { backgroundColor: theme.bg, color: theme.text },
+            { backgroundColor: theme.background, color: theme.text },
           ]}
           placeholder="Hasło"
           placeholderTextColor={theme.placeholder}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          returnKeyType="go" // Zmienia ikonę na "Idź/Zaloguj"
+          returnKeyType="go"
           onSubmitEditing={handleAuth}
         />
 
@@ -115,14 +109,14 @@ export default function UserLoginRegisterComponent() {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-          <Text style={styles.switchText}>
+          <Text style={[styles.switchText, { color: theme.text }]}>
             {isLogin
               ? "Nie masz konta? Zarejestruj się"
               : "Masz już konto? Zaloguj się"}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setIsLogin(!isLogin)}>
-          <Text style={styles.switchText}>
+          <Text style={[styles.switchText, { color: theme.text }]}>
             {isLogin && "Zapomniałeś hasła? Zresetuj"}
           </Text>
         </TouchableOpacity>
