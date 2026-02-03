@@ -332,26 +332,34 @@ export default function ShoppingList() {
           )}
         </TouchableOpacity>
       </View>
-
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item._id}
-        renderItem={renderItem}
-        renderSectionHeader={({ section: { title } }) => (
-          <View
-            style={[
-              styles.sectionHeader,
-              { backgroundColor: theme.background },
-            ]}
-          >
-            <Text style={[styles.sectionHeaderText, { color: "#FF6347" }]}>
-              {title}
-            </Text>
-          </View>
-        )}
-        contentContainerStyle={styles.listContent}
-        stickySectionHeadersEnabled={false}
-      />
+      {!sections || sections.length < 0 ? (
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => item._id}
+          renderItem={renderItem}
+          renderSectionHeader={({ section: { title } }) => (
+            <View
+              style={[
+                styles.sectionHeader,
+                { backgroundColor: theme.background },
+              ]}
+            >
+              <Text style={[styles.sectionHeaderText, { color: "#FF6347" }]}>
+                {title}
+              </Text>
+            </View>
+          )}
+          contentContainerStyle={styles.listContent}
+          stickySectionHeadersEnabled={false}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons name="sad-outline" size={60} color={theme.border} />
+          <Text style={[styles.emptyText, { color: theme.subText }]}>
+            Dodaj dania do kalendarza aby wygenerować listę zakupów
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -398,4 +406,11 @@ const styles = StyleSheet.create({
   atHomeActive: { backgroundColor: "#4CAF50", borderColor: "#4CAF50" },
   purchasedActive: { backgroundColor: "#FF6347", borderColor: "#FF6347" },
   deleteBtn: { justifyContent: "center", paddingLeft: 5 },
+  emptyState: { alignItems: "center", marginTop: 100 },
+  emptyText: {
+    marginTop: 10,
+    fontSize: 16,
+    paddingHorizontal: 20,
+    textAlign: "center",
+  },
 });
