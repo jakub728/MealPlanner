@@ -32,15 +32,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* <Tabs.Screen
-        name="publicRecipes"
-        options={{
-          title: "Przepisy",
-          tabBarIcon: ({ color }) => (
-            <FontAwesome name="search" size={28} color={color} />
-          ),
-        }}
-      /> */}
+
       <Tabs.Screen
         name="myRecipes"
         options={{
@@ -56,6 +48,15 @@ export default function TabLayout() {
           title: "Lista",
           tabBarIcon: ({ color }) => (
             <FontAwesome name="shopping-cart" size={28} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="publicRecipes"
+        options={{
+          title: "Przepisy",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="search" size={28} color={color} />
           ),
         }}
       />

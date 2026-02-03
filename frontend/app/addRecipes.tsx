@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -19,23 +20,20 @@ import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 
 const CUISINES = [
-  "Włoska",
   "Polska",
-  "Azjatycka",
-  "Meksykańska",
-  "Francuska",
+  "Włoska",
   "Amerykańska",
+  "Meksykańska",
   "Hinduska",
-  "Śródziemnomorska",
   "Chińska",
   "Japońska",
+  "Wietnamska",
+  "Koreańska",
   "Tajska",
   "Grecka",
   "Hiszpańska",
   "Turecka",
-  "Marokańska",
-  "Wietnamska",
-  "Koreańska",
+  "Francuska",
 ];
 
 const DIET_TYPES = [
@@ -150,7 +148,7 @@ export default function AddRecipesScreen() {
     formData.append("instructions", JSON.stringify(instructionsList));
     formData.append(
       "cuisine",
-      JSON.stringify(selectedCuisine ? [selectedCuisine] : []),
+      JSON.stringify(selectedCuisine ? selectedCuisine : ""),
     );
     formData.append("diet_type", JSON.stringify(selectedDiets));
     formData.append("status", "private");
@@ -164,13 +162,34 @@ export default function AddRecipesScreen() {
       Alert.alert("Błąd", "Brak uprawnień do galerii!");
       return;
     }
+
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.7,
+      aspect: [4, 3], // Zachowaj to dla porządku w UI
+      quality: 1, // Tu bierzemy oryginał, skompresujemy go za chwilę ręcznie
     });
-    if (!result.canceled) setImage(result.assets[0].uri);
+
+    if (!result.canceled) {
+      try {
+        // PROCES KOMPRESJI
+        const manipResult = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 1024 } }], // Zmniejszamy szerokość do 1024px (wysokość wyliczy się sama)
+          {
+            compress: 0.6, // 60% jakości to "sweet spot" – oko nie widzi różnicy, a waga spada drastycznie
+            format: ImageManipulator.SaveFormat.JPEG,
+          },
+        );
+
+        setImage(manipResult.uri);
+        console.log("Oryginalny rozmiar:", result.assets[0].fileSize); // jeśli dostępne
+        console.log("Skompresowane zdjęcie zapisane w:", manipResult.uri);
+      } catch (error) {
+        console.error("Błąd kompresji:", error);
+        setImage(result.assets[0].uri); // fallback do oryginału w razie błędu
+      }
+    }
   };
 
   if (!token) return <LoginFirst />;

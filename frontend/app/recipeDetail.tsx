@@ -5,12 +5,12 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  TouchableOpacity,
   useColorScheme,
   Image,
+  TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,9 +19,11 @@ import Colors from "@/constants/Colors";
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
 
+  // 1. Pobranie przepisu z bazy
   const {
     data: recipe,
     isLoading,
@@ -34,6 +36,44 @@ export default function RecipeDetailScreen() {
     },
     enabled: !!id,
   });
+
+  // 2. Funkcja zmiany statusuna pending
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      return await api.patch(`/recipes/${id}`);
+    },
+    onSuccess: () => {
+      alert("Wysłano do weryfikacji!");
+      queryClient.invalidateQueries({ queryKey: ["recipe", id] });
+    },
+    onError: () => alert("Błąd podczas wysyłania."),
+  });
+
+  // 3. Funkcja pomocnicza do gwiazdek i ocen
+  const renderRating = () => {
+    if (!recipe?.note || recipe.note.length === 0) return null;
+    const average =
+      recipe.note.reduce((a: number, b: number) => a + b, 0) /
+      recipe.note.length;
+
+    return (
+      <View style={styles.ratingRow}>
+        <View style={styles.stars}>
+          {[1, 2, 3, 4, 5].map((s) => (
+            <Ionicons
+              key={s}
+              name={s <= Math.round(average) ? "star" : "star-outline"}
+              size={18}
+              color="#FFD700"
+            />
+          ))}
+        </View>
+        <Text style={[styles.ratingText, { color: theme.subText }]}>
+          ({average.toFixed(1)}) • {recipe.note.length} ocen
+        </Text>
+      </View>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -65,7 +105,7 @@ export default function RecipeDetailScreen() {
       />
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Prawdziwe zdjęcie z bazy */}
+        {/* FOTO */}
         {recipe.imageUrl ? (
           <Image source={{ uri: recipe.imageUrl }} style={styles.headerImage} />
         ) : (
@@ -84,51 +124,48 @@ export default function RecipeDetailScreen() {
           </View>
         )}
 
+        {/* NOTA */}
         <View
           style={[styles.mainContent, { backgroundColor: theme.background }]}
         >
-          {/* Tytuł i Kuchnia */}
           <View style={styles.titleRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.title, { color: theme.text }]}>
-                {recipe.title}
-              </Text>
-              {recipe.cuisine && (
-                <View style={styles.cuisineBadge}>
-                  <Ionicons name="flag-outline" size={14} color="#FF6347" />
-                  <Text style={styles.cuisineText}>{recipe.cuisine}</Text>
-                </View>
-              )}
-            </View>
+            <Text style={[styles.title, { color: theme.text }]}>
+              {recipe.title}
+            </Text>
+            {renderRating()}
+            {recipe.cuisine && (
+              <View style={styles.cuisineBadge}>
+                <Ionicons name="flag-outline" size={14} color="#FF6347" />
+                <Text style={styles.cuisineText}>{recipe.cuisine}</Text>
+              </View>
+            )}
           </View>
 
-          {/* Diety (diet_type) */}
-          {recipe.diet_type && recipe.diet_type.length > 0 && (
-            <View style={styles.dietContainer}>
-              {recipe.diet_type.map((diet: string, i: number) => (
-                <View
-                  key={i}
-                  style={[styles.dietBadge, { backgroundColor: theme.card }]}
-                >
-                  <Text style={[styles.dietText, { color: theme.subText }]}>
-                    {diet}
-                  </Text>
-                </View>
-              ))}
-            </View>
+          {/* PRZYCISK UPUBLICZNIJ */}
+          {recipe.status === "private" && (
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={() => submitMutation.mutate()}
+              disabled={submitMutation.isPending}
+            >
+              <Ionicons name="cloud-upload-outline" size={20} color="#fff" />
+              <Text style={styles.submitButtonText}>
+                {submitMutation.isPending
+                  ? "Wysyłanie..."
+                  : "Udostępnij przepis"}
+              </Text>
+            </TouchableOpacity>
           )}
 
-          {recipe.description && (
-            <View
-              style={[styles.descriptionBox, { backgroundColor: theme.card }]}
-            >
-              <Text style={[styles.descriptionText, { color: theme.subText }]}>
-                {recipe.description}
+          {recipe.status === "pending" && (
+            <View style={[styles.pendingInfo, { backgroundColor: theme.card }]}>
+              <Text style={{ color: "#FF6347", fontWeight: "bold" }}>
+                Przepis oczekuje na weryfikację
               </Text>
             </View>
           )}
 
-          {/* Składniki */}
+          {/* SKŁADNIKI */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ionicons name="basket" size={22} color="#FF6347" />
@@ -154,7 +191,7 @@ export default function RecipeDetailScreen() {
             ))}
           </View>
 
-          {/* Instrukcje */}
+          {/* PRZYGOTOWANIE*/}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Ionicons name="list" size={22} color="#FF6347" />
@@ -173,6 +210,31 @@ export default function RecipeDetailScreen() {
               </View>
             ))}
           </View>
+          {/* KOMENTARZE */}
+          {recipe.comments && recipe.comments.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={22}
+                  color="#FF6347"
+                />
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Komentarze
+                </Text>
+              </View>
+              {recipe.comments.map((comment: string, index: number) => (
+                <View
+                  key={index}
+                  style={[styles.commentCard, { backgroundColor: theme.card }]}
+                >
+                  <Text style={[styles.commentText, { color: theme.text }]}>
+                    {comment}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -241,4 +303,37 @@ const styles = StyleSheet.create({
   },
   stepNumber: { color: "#fff", fontWeight: "bold", fontSize: 13 },
   stepContent: { flex: 1, fontSize: 16, lineHeight: 24 },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: 5,
+  },
+  stars: { flexDirection: "row", gap: 2 },
+  ratingText: { fontSize: 14, fontWeight: "500" },
+  submitButton: {
+    backgroundColor: "#FF6347",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 15,
+    gap: 10,
+    marginVertical: 15,
+  },
+  submitButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  pendingInfo: {
+    padding: 15,
+    borderRadius: 15,
+    alignItems: "center",
+    marginVertical: 15,
+    borderWidth: 1,
+    borderColor: "#FF6347",
+  },
+  commentCard: {
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  commentText: { fontSize: 14, lineHeight: 20 },
 });
