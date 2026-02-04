@@ -146,46 +146,36 @@ router.get(
               <div id="list">
                 ${pending
                   .map(
-                    (r: any) => `
+                    (r: any) =>
+                      `
                   <div class="card" id="card-${r._id}">
                     <div class="header">
                       <div>
-                        <div class="title">${r.title}</div>
+                        <div class="title" id="title-${r._id}" contenteditable="true" style="border: 1px dashed #ccc; padding: 2px;">${r.title}</div>
                         <div class="meta">
-                          Autor: <strong>${r.author?.name || "Nieznany"}</strong> (${r.author?.email || "brak maila"})<br>
-                          Kuchnia: ${r.cuisine || "Nie podano"} | Diety: ${r.diet_type?.join(", ") || "brak"}
+                          Autor: <strong>${r.author?.name || "Nieznany"}</strong> | Kuchnia: ${r.cuisine || "Nieokreślona"}
                         </div>
                       </div>
-                      <span class="badge">PENDING</span>
                     </div>
 
                     <div class="content">
                       <div class="details">
-                        <p><i>${r.description || "Brak opisu"}</i></p>
-                        
                         <div class="list-section">
-                          <strong>Składniki:</strong><br>
-                          ${r.ingredients.map((i: any) => `• ${i.name}: ${i.amount}${i.unit}`).join("<br>")}
+                          <strong>Składniki:</strong>
+                          <p>${r.ingredients.map((i: any) => `${i.name}: ${i.amount}${i.unit}`).join(", ")}</p>
                         </div>
 
                         <div class="list-section">
-                          <strong>Instrukcje:</strong><br>
-                          ${r.instructions.map((step: string, idx: number) => `${idx + 1}. ${step}`).join("<br>")}
+                          <strong>Instrukcje (edytowalne):</strong>
+                          <div id="instr-${r._id}" contenteditable="true" style="white-space: pre-wrap; background: #fff; border: 1px dashed #ccc; padding: 10px; margin-top: 5px; min-height: 100px;">${r.instructions}</div>
                         </div>
                       </div>
-                      
-                      ${
-                        r.imageUrl
-                          ? `
-                        <div class="image-preview">
-                          <img src="${r.imageUrl}" alt="Recipe photo">
-                        </div>
-                      `
-                          : ""
-                      }
                     </div>
 
-                    <button class="btn" onclick="approve('${r._id}')">Zatwierdź i publikuj</button>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                      <button class="btn" style="background: #007bff;" onclick="saveChanges('${r._id}')">Zapisz poprawki</button>
+                      <button class="btn" onclick="approve('${r._id}')">Zatwierdź i publikuj</button>
+                    </div>
                   </div>
                 `,
                   )
@@ -194,6 +184,27 @@ router.get(
             </div>
 
             <script>
+              async function saveChanges(id) {
+                const title = document.getElementById('title-' + id).innerText;
+                const instructions = document.getElementById('instr-' + id).innerText;
+
+                try {
+                  const res = await fetch(\`/api/recipes/admin/quick-edit/\${id}?user=${user}&pass=${pass}\`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, instructions }) // Wysyłamy poprawione instrukcje
+                  });
+
+                  if(res.ok) {
+                    alert('Zmiany zapisane!');
+                  } else {
+                    alert('Błąd zapisu');
+                  }
+                } catch(e) {
+                  alert('Błąd połączenia');
+                }
+              }
+
               async function approve(id) {
                 if(!confirm('Czy na pewno chcesz opublikować ten przepis?')) return;
                 try {
@@ -235,17 +246,14 @@ router.post(
     try {
       const rawData = { ...req.body };
 
-      const fieldsToParse = [
-        "ingredients",
-        "instructions",
-        "diet_type",
-        "cuisine",
-      ];
-      fieldsToParse.forEach((field) => {
+      const arraysToParse = ["ingredients", "diet_type", "dish_type"];
+      arraysToParse.forEach((field) => {
         if (typeof rawData[field] === "string") {
           try {
             rawData[field] = JSON.parse(rawData[field]);
-          } catch (e) {}
+          } catch (e) {
+            rawData[field] = []; // fallback
+          }
         }
       });
 
@@ -272,42 +280,80 @@ router.post(
         recipe: savedRecipe,
       });
     } catch (error: any) {
+      console.log("recipe/add error: ", error);
       next(error);
     }
   },
 );
 
-//!DELETE Recipe by ID
-//http://localhost:7777/api/recipes/:id
-router.delete(
-  "/:id",
+//!POST Add recipe [recipes_liked]
+//http://localhost:7777/api/recipes/like
+router.post(
+  "/like",
   checkToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.userId) {
-        return next({ status: 401, message: "User not authenticated" });
+      const { recipeId } = req.body;
+
+      if (!recipeId) {
+        return res.status(400).json({ message: "Recipe ID is required" });
       }
 
-      const recipe = await Recipe.findById(req.params.id);
+      const user = await UserModel.findByIdAndUpdate(
+        req.userId,
+        { $addToSet: { recipes_liked: recipeId } },
+        { new: true },
+      );
+
+      res.status(200).json({
+        message: "Recipe liked successfully",
+        likedRecipes: user?.recipes_liked,
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  },
+);
+
+//!PUT Edit Recipe with status==="private" & owner==="author"
+//http://localhost:7777/api/recipes/edit/:id
+router.put(
+  "/edit/:id",
+  checkToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const recipeId = req.params.id;
+      const updateData = req.body;
+
+      const recipe = await Recipe.findById(recipeId);
 
       if (!recipe) {
-        return next({ status: 404, message: "Recipe not found" });
+        return res.status(404).json({ message: "Recipe not found" });
+      }
+
+      if (recipe.status !== "private") {
+        return res
+          .status(403)
+          .json({ message: "You can not edit this recipe" });
       }
 
       if (recipe.author.toString() !== req.userId) {
-        return next({
-          status: 403,
-          message: "Not authorized to delete this recipe",
-        });
+        return res
+          .status(403)
+          .json({ message: "You can not edit this recipe" });
       }
 
-      await Recipe.findByIdAndDelete(req.params.id);
+      const updatedRecipe = await Recipe.findByIdAndUpdate(
+        recipeId,
+        { $set: updateData },
+        { new: true, runValidators: true },
+      );
 
-      await UserModel.findByIdAndUpdate(req.userId, {
-        $pull: { recipes_added: req.params.id },
+      res.status(200).json({
+        message: "Recipe updated successfully",
+        recipe: updatedRecipe,
       });
-      res.status(200).json({ message: "Recipe deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
       next(error);
     }
   },
@@ -346,7 +392,34 @@ router.patch(
   },
 );
 
-//? PATCH Pending->Public Recipes [admin]
+//?PATCH Admin Edit Pending Recipes [admin]
+//http://localhost:7777/api/recipes/admin/quick-edit/:id?user=ADMIN_USER&pass=ADMIN_PASSWORD
+router.patch(
+  "/admin/quick-edit/:id",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { user, pass } = req.query;
+      if (
+        user !== process.env.ADMIN_USER ||
+        pass !== process.env.ADMIN_PASSWORD
+      ) {
+        return res.status(401).json({ message: "Błąd autoryzacji" });
+      }
+
+      const updated = await Recipe.findByIdAndUpdate(
+        req.params.id,
+        { $set: req.body },
+        { new: true },
+      );
+
+      res.status(200).json(updated);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+//?PATCH Pending->Public Recipes [admin]
 //http://localhost:7777/api/recipes/admin/approve?user=ADMIN_USER&pass=ADMIN_PASSWORD
 router.patch(
   "/admin/approve/:id",
@@ -377,6 +450,42 @@ router.patch(
         message: "Przepis został zatwierdzony i jest publiczny!",
         recipe: updatedRecipe,
       });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+//!DELETE Recipe by ID
+//http://localhost:7777/api/recipes/:id
+router.delete(
+  "/:id",
+  checkToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (!req.userId) {
+        return next({ status: 401, message: "User not authenticated" });
+      }
+
+      const recipe = await Recipe.findById(req.params.id);
+
+      if (!recipe) {
+        return next({ status: 404, message: "Recipe not found" });
+      }
+
+      if (recipe.author.toString() !== req.userId) {
+        return next({
+          status: 403,
+          message: "Not authorized to delete this recipe",
+        });
+      }
+
+      await Recipe.findByIdAndDelete(req.params.id);
+
+      await UserModel.findByIdAndUpdate(req.userId, {
+        $pull: { recipes_added: req.params.id },
+      });
+      res.status(200).json({ message: "Recipe deleted successfully" });
     } catch (error) {
       next(error);
     }
