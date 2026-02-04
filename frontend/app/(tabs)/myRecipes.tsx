@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -8,44 +8,31 @@ import {
   RefreshControl,
   useColorScheme,
   ImageBackground,
+  TextInput,
+  LayoutAnimation,
+  Platform,
+  UIManager,
+  ScrollView,
 } from "react-native";
 import { useAuthStore } from "@/store/useAuthStore";
 import LoginFirst from "@/components/loginFirst";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "@/constants/Colors";
 import { LinearGradient } from "expo-linear-gradient";
+import { DISHES, CUISINES, DIET_TYPES } from "@/constants/Filters";
 
-const getRecipeSaved = (count: number) => {
-  if (count === 1) return "zapisaną recepturę";
-  const lastDigit = count % 10;
-  const lastTwoDigits = count % 100;
-  if (
-    lastDigit >= 2 &&
-    lastDigit <= 4 &&
-    (lastTwoDigits < 10 || lastTwoDigits >= 20)
-  ) {
-    return "zapisane receptury";
-  }
-  return "zapisanych receptur";
-};
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
-const getRecipeLiked = (count: number) => {
-  if (count === 1) return "polubioną recepturę";
-  const lastDigit = count % 10;
-  const lastTwoDigits = count % 100;
-  if (
-    lastDigit >= 2 &&
-    lastDigit <= 4 &&
-    (lastTwoDigits < 10 || lastTwoDigits >= 20)
-  ) {
-    return "polubione receptury";
-  }
-  return "polubionych receptur";
-};
+type SortOption = "najnowsze" | "najlepsze" | "a-z";
 
 const getStatusConfig = (status: string) => {
   switch (status) {
@@ -60,12 +47,19 @@ const getStatusConfig = (status: string) => {
 
 export default function MyRecipesScreen() {
   const [activeTab, setActiveTab] = useState<"added" | "liked">("added");
+  const [search, setSearch] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("najnowsze");
+  const [selectedDishes, setSelectedDishes] = useState<string[]>([]);
+  const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
+  const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
+
   const { token } = useAuthStore();
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
 
-  // Pobieranie danych
+  // 1. Pobieranie danych
   const {
     data: myRecipes,
     isLoading: loadingAdded,
@@ -86,85 +80,287 @@ export default function MyRecipesScreen() {
     enabled: !!token,
   });
 
-  if (!token) return <LoginFirst placeholder=" aby zobaczyć swoje przepisy" />;
+  // 2. Logika filtrowania i sortowania (taka sama jak w publicznych)
+  const filteredData = useMemo(() => {
+    const baseData = (activeTab === "added" ? myRecipes : likedRecipes) || [];
+    let list = [...baseData];
 
-  const currentData = (activeTab === "added" ? myRecipes : likedRecipes) || [];
-  const isLoading = activeTab === "added" ? loadingAdded : loadingLiked;
+    if (search) {
+      list = list.filter((r: any) =>
+        r.title.toLowerCase().includes(search.toLowerCase()),
+      );
+    }
+    if (selectedDishes.length > 0) {
+      list = list.filter((r: any) =>
+        r.dish_type?.some((type: any) =>
+          selectedDishes.includes(type.name || type),
+        ),
+      );
+    }
+    if (selectedDiets.length > 0) {
+      list = list.filter((r: any) =>
+        r.diet_type?.some((diet: any) =>
+          selectedDiets.includes(diet.name || diet),
+        ),
+      );
+    }
+    if (selectedCuisines.length > 0) {
+      list = list.filter((r: any) => selectedCuisines.includes(r.cuisine));
+    }
 
-  const renderRecipeItem = ({ item }: { item: any }) => {
-    const statusCfg = getStatusConfig(item.status);
+    return list.sort((a: any, b: any) => {
+      if (sortBy === "a-z") return a.title.localeCompare(b.title);
+      return (
+        new Date(b.createdAt || 0).getTime() -
+        new Date(a.createdAt || 0).getTime()
+      );
+    });
+  }, [
+    activeTab,
+    myRecipes,
+    likedRecipes,
+    search,
+    selectedDishes,
+    selectedDiets,
+    selectedCuisines,
+    sortBy,
+  ]);
 
-    return (
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={() =>
-          router.push({ pathname: "/recipeDetail", params: { id: item._id } })
-        }
-      >
-        <ImageBackground
-          source={{ uri: item.imageUrl || "https://via.placeholder.com/400" }}
-          style={styles.recipeCard}
-          imageStyle={styles.cardImage}
-        >
-          {/* Status Badge - teraz na samej górze karty */}
-          <View style={styles.topRow}>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: "rgba(0,0,0,0.6)",
-                  borderColor: statusCfg.color,
-                },
-              ]}
-            >
-              <Ionicons
-                name={statusCfg.icon as any}
-                size={10}
-                color={statusCfg.color}
-              />
-              <Text style={[styles.statusText, { color: statusCfg.color }]}>
-                {statusCfg.label}
-              </Text>
-            </View>
-          </View>
-
-          <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.9)"]}
-            style={styles.gradient}
-          >
-            <View style={styles.cardContent}>
-              <Text style={styles.recipeTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={styles.ingredientsPreview} numberOfLines={1}>
-                {item.ingredients
-                  ?.map((ing: any) => ing.name || ing)
-                  .join(" • ")}
-              </Text>
-            </View>
-          </LinearGradient>
-        </ImageBackground>
-      </TouchableOpacity>
+  const toggleFilter = (
+    setFn: React.Dispatch<React.SetStateAction<string[]>>,
+    value: string,
+  ) => {
+    setFn((prev) =>
+      prev.includes(value) ? prev.filter((i) => i !== value) : [...prev, value],
     );
   };
+
+  if (!token) return <LoginFirst placeholder=" aby zobaczyć swoje przepisy" />;
+
+  const isLoading = activeTab === "added" ? loadingAdded : loadingLiked;
+
+  // const renderRecipeItem = ({ item }: { item: any }) => {
+  //   const statusCfg = getStatusConfig(item.status);
+
+  //   return (
+  //     <TouchableOpacity
+  //       activeOpacity={0.9}
+  //       onPress={() =>
+  //         router.push({ pathname: "/recipeDetail", params: { id: item._id } })
+  //       }
+  //     >
+  //       <ImageBackground
+  //         source={{ uri: item.imageUrl || "https://via.placeholder.com/400" }}
+  //         style={styles.recipeCard}
+  //         imageStyle={styles.cardImage}
+  //       >
+  //         <View style={styles.topRow}>
+  //           <View
+  //             style={[
+  //               styles.statusBadge,
+  //               {
+  //                 backgroundColor: "rgba(0,0,0,0.6)",
+  //                 borderColor: statusCfg.color,
+  //               },
+  //             ]}
+  //           >
+  //             <Ionicons
+  //               name={statusCfg.icon as any}
+  //               size={10}
+  //               color={statusCfg.color}
+  //             />
+  //             <Text style={[styles.statusText, { color: statusCfg.color }]}>
+  //               {statusCfg.label}
+  //             </Text>
+  //           </View>
+  //         </View>
+
+  //         <LinearGradient
+  //           colors={["transparent", "rgba(0,0,0,0.9)"]}
+  //           style={styles.gradient}
+  //         >
+  //           <View style={styles.cardContent}>
+  //             <Text style={styles.recipeTitle} numberOfLines={1}>
+  //               {item.title}
+  //             </Text>
+  //             <Text style={styles.ingredientsPreview} numberOfLines={1}>
+  //               {item.cuisine}
+  //             </Text>
+  //           </View>
+  //         </LinearGradient>
+  //       </ImageBackground>
+  //     </TouchableOpacity>
+  //   );
+  // };
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
       edges={["top"]}
     >
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>
           {activeTab === "added" ? "Moje przepisy" : "Polubione"}
         </Text>
-        <Text style={[styles.subtitle, { color: theme.subText }]}>
-          Masz {currentData?.length || 0}{" "}
-          {activeTab === "added"
-            ? getRecipeSaved(currentData?.length || 0)
-            : getRecipeLiked(currentData?.length || 0)}
-        </Text>
+
+        <View style={styles.searchRow}>
+          <View
+            style={[
+              styles.searchContainer,
+              { backgroundColor: colorScheme === "dark" ? "#333" : "#f0f0f0" },
+            ]}
+          >
+            <Ionicons
+              name="search"
+              size={20}
+              color={theme.subText}
+              style={styles.searchIcon}
+            />
+            <TextInput
+              placeholder="Szukaj..."
+              placeholderTextColor={theme.subText}
+              style={[styles.searchInput, { color: theme.text }]}
+              value={search}
+              onChangeText={setSearch}
+            />
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.filterBtn,
+              {
+                backgroundColor: isMenuOpen
+                  ? "#FF6347"
+                  : colorScheme === "dark"
+                    ? "#333"
+                    : "#f0f0f0",
+              },
+            ]}
+            onPress={() => {
+              LayoutAnimation.configureNext(
+                LayoutAnimation.Presets.easeInEaseOut,
+              );
+              setIsMenuOpen(!isMenuOpen);
+            }}
+          >
+            <Ionicons
+              name="options-outline"
+              size={24}
+              color={isMenuOpen ? "#fff" : theme.text}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
+      {/* MENU FILTROWANIA (Rozwijane) */}
+      {isMenuOpen && (
+        <View style={styles.menuContent}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
+            {DISHES.map((dish) => (
+              <TouchableOpacity
+                key={dish.value}
+                onPress={() => toggleFilter(setSelectedDishes, dish.label)}
+                style={[
+                  styles.chip,
+                  selectedDishes.includes(dish.label) && styles.chipActive,
+                ]}
+              >
+                {dish.type === "mat" ? (
+                  <MaterialCommunityIcons
+                    name={dish.icon as any}
+                    size={18}
+                    style={{ textAlign: "center" }}
+                    color={
+                      selectedDishes.includes(dish.label) ? "#FF6347" : "#666"
+                    }
+                  />
+                ) : (
+                  <Ionicons
+                    name={dish.icon as any}
+                    size={18}
+                    style={{ textAlign: "center" }}
+                    color={
+                      selectedDishes.includes(dish.label) ? "#FF6347" : "#666"
+                    }
+                  />
+                )}
+                <Text
+                  style={[
+                    styles.chipText,
+                    selectedDishes.includes(dish.label) &&
+                      styles.chipTextActive,
+                  ]}
+                >
+                  {dish.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
+            {DIET_TYPES.map((diet) => (
+              <TouchableOpacity
+                key={diet.label}
+                onPress={() => toggleFilter(setSelectedCuisines, diet.label)}
+                style={[
+                  styles.chip,
+                  selectedCuisines.includes(diet.label) && styles.chipActive,
+                ]}
+              >
+                {diet.type === "mat" ? (
+                  <MaterialCommunityIcons
+                    name={diet.icon as any}
+                    size={18}
+                    style={{ textAlign: "center" }}
+                    color={
+                      selectedDishes.includes(diet.label) ? "#FF6347" : "#666"
+                    }
+                  />
+                ) : (
+                  <Ionicons
+                    name={diet.icon as any}
+                    size={18}
+                    style={{ textAlign: "center" }}
+                    color={
+                      selectedDishes.includes(diet.label) ? "#FF6347" : "#666"
+                    }
+                  />
+                )}
+                <Text style={styles.chipText}>{diet.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
+            {CUISINES.map((c) => (
+              <TouchableOpacity
+                key={c.label}
+                onPress={() => toggleFilter(setSelectedCuisines, c.label)}
+                style={[
+                  styles.chip,
+                  selectedCuisines.includes(c.label) && styles.chipActive,
+                ]}
+              >
+                <Text style={styles.chipText}>
+                  {c.flag} {c.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* TABS */}
       <View
         style={[
           styles.tabContainer,
@@ -179,7 +375,10 @@ export default function MyRecipesScreen() {
               { backgroundColor: theme.card },
             ],
           ]}
-          onPress={() => setActiveTab("added")}
+          onPress={() => {
+            LayoutAnimation.spring();
+            setActiveTab("added");
+          }}
         >
           <Text
             style={[
@@ -190,7 +389,6 @@ export default function MyRecipesScreen() {
             Moje
           </Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={[
             styles.tab,
@@ -199,7 +397,10 @@ export default function MyRecipesScreen() {
               { backgroundColor: theme.card },
             ],
           ]}
-          onPress={() => setActiveTab("liked")}
+          onPress={() => {
+            LayoutAnimation.spring();
+            setActiveTab("liked");
+          }}
         >
           <Text
             style={[
@@ -212,10 +413,10 @@ export default function MyRecipesScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* LISTA */}
       <FlatList
-        data={currentData}
+        data={filteredData}
         keyExtractor={(item) => item._id}
-        renderItem={renderRecipeItem}
         contentContainerStyle={styles.listPadding}
         refreshControl={
           <RefreshControl
@@ -224,17 +425,43 @@ export default function MyRecipesScreen() {
             tintColor="#FF6347"
           />
         }
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() =>
+              router.push({
+                pathname: "/recipeDetail",
+                params: { id: item._id },
+              })
+            }
+          >
+            <ImageBackground
+              source={{
+                uri: item.imageUrl || "https://via.placeholder.com/400",
+              }}
+              style={styles.recipeCard}
+              imageStyle={styles.cardImage}
+            >
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.8)"]}
+                style={styles.gradient}
+              >
+                <Text style={styles.recipeTitle}>{item.title}</Text>
+                <Text style={styles.recipeSub}>
+                  {item.cuisine} •{" "}
+                  {item.dish_type?.[0]?.name || item.dish_type?.[0] || "Danie"}
+                </Text>
+              </LinearGradient>
+            </ImageBackground>
+          </TouchableOpacity>
+        )}
         ListEmptyComponent={
-          !isLoading ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={60} color={theme.border} />
-              <Text style={[styles.emptyText, { color: theme.subText }]}>
-                {activeTab === "added"
-                  ? "Nie dodałeś jeszcze przepisów."
-                  : "Nie masz polubionych przepisów."}
-              </Text>
-            </View>
-          ) : null
+          <View style={styles.emptyState}>
+            <Ionicons name="search-outline" size={60} color={theme.border} />
+            <Text style={{ color: theme.subText, marginTop: 10 }}>
+              Brak wyników spełniających kryteria.
+            </Text>
+          </View>
         }
       />
 
@@ -252,9 +479,40 @@ export default function MyRecipesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingVertical: 15, alignItems: "center" },
-  title: { fontSize: 28, fontWeight: "bold" },
-  subtitle: { fontSize: 14, marginTop: 4 },
+  header: { paddingHorizontal: 20, paddingTop: 10 },
+  title: { fontSize: 26, fontWeight: "bold", marginBottom: 15 },
+  searchRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    height: 45,
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 16 },
+  filterBtn: {
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  menuContent: { paddingHorizontal: 20, marginBottom: 10 },
+  filterScroll: { marginBottom: 8 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#eee",
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  chipActive: { backgroundColor: "#FF634720", borderColor: "#FF6347" },
+  chipText: { fontSize: 12, color: "#666" },
+  chipTextActive: { color: "#FF6347", fontWeight: "bold" },
   tabContainer: {
     flexDirection: "row",
     marginHorizontal: 20,
@@ -271,41 +529,17 @@ const styles = StyleSheet.create({
   },
   tabText: { fontWeight: "600", color: "#888" },
   activeTabText: { color: "#FF6347" },
-  listPadding: { padding: 20, paddingBottom: 120 },
+  listPadding: { padding: 20, paddingBottom: 100 },
   recipeCard: {
-    height: 200,
+    height: 180,
     borderRadius: 20,
-    marginBottom: 20,
+    marginBottom: 15,
     overflow: "hidden",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
   },
   cardImage: { borderRadius: 20 },
-  gradient: { flex: 1, justifyContent: "flex-end", padding: 16 },
-  cardContent: { width: "100%" },
-  topRow: { position: "absolute", top: 12, left: 12 },
-  recipeTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#fff",
-    textShadowColor: "rgba(0, 0, 0, 0.75)",
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 5,
-  },
-  ingredientsPreview: { fontSize: 13, color: "#e0e0e0", marginTop: 4 },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 4,
-  },
-  statusText: { fontSize: 10, fontWeight: "bold", textTransform: "uppercase" },
+  gradient: { flex: 1, justifyContent: "flex-end", padding: 15 },
+  recipeTitle: { fontSize: 20, fontWeight: "bold", color: "#fff" },
+  recipeSub: { color: "#ddd", fontSize: 12 },
   fab: {
     position: "absolute",
     bottom: 30,
@@ -316,8 +550,7 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 10,
+    elevation: 5,
   },
-  emptyState: { alignItems: "center", justifyContent: "center", marginTop: 60 },
-  emptyText: { marginTop: 10, fontSize: 16 },
+  emptyState: { alignItems: "center", marginTop: 50 },
 });

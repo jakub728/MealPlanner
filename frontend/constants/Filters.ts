@@ -1,0 +1,85 @@
+export const DISHES = [
+  { label: "Szybkie", value: "szybkie", icon: "flash-outline", type: "ion" },
+  {
+    label: "Śniadanie",
+    value: "śniadanie",
+    icon: "sunny-outline",
+    type: "ion",
+  },
+  {
+    label: "Przekąska",
+    value: "przekąska",
+    icon: "fast-food-outline",
+    type: "ion",
+  },
+  { label: "Zupa", value: "zupa", icon: "water-outline", type: "ion" },
+  { label: "Sałatka", value: "sałatka", icon: "leaf-outline", type: "ion" },
+  { label: "Obiad", value: "obiad", icon: "restaurant-outline", type: "ion" },
+  {
+    label: "Danie jednogarnkowe",
+    value: "danie jednogarnkowe",
+    icon: "pot-steam-outline",
+    type: "mat",
+  },
+  { label: "Makaron", value: "makaron", icon: "bowl-mix-outline", type: "mat" },
+  {
+    label: "Lunchbox",
+    value: "lunchbox",
+    icon: "briefcase-outline",
+    type: "ion",
+  },
+  { label: "Deser", value: "deser", icon: "ice-cream-outline", type: "ion" },
+  { label: "Kolacja", value: "kolacja", icon: "moon-outline", type: "ion" },
+  { label: "Napój", value: "napój", icon: "cafe-outline", type: "ion" },
+  { label: "Drink", value: "drink", icon: "wine-outline", type: "ion" },
+  {
+    label: "Pieczywo",
+    value: "pieczywo",
+    icon: "bread-slice-outline",
+    type: "mat",
+  },
+  {
+    label: "Przetwory",
+    value: "przetwory",
+    icon: "archive-outline",
+    type: "ion",
+  },
+  { label: "Sos", value: "sos", icon: "color-fill-outline", type: "ion" },
+];
+
+export const CUISINES = [
+  { label: "Polska", flag: "🇵🇱" },
+  { label: "Włoska", flag: "🇮🇹" },
+  { label: "Turecka", flag: "🇹🇷" },
+  { label: "Amerykańska", flag: "🇺🇸" },
+  { label: "Chińska", flag: "🇨🇳" },
+  { label: "Meksykańska", flag: "🇲🇽" },
+  { label: "Hiszpańska", flag: "🇪🇸" },
+  { label: "Indyjska", flag: "🇮🇳" },
+  { label: "Ukraińska", flag: "🇺🇦" },
+  { label: "Japońska", flag: "🇯🇵" },
+  { label: "Grecka", flag: "🇬🇷" },
+  { label: "Tajska", flag: "🇹🇭" },
+  { label: "Wietnamska", flag: "🇻🇳" },
+  { label: "Francuska", flag: "🇫🇷" },
+  { label: "Gruzińska", flag: "🇬🇪" },
+  { label: "Skandynawska", flag: "🇸🇪" },
+  { label: "Pakistańska", flag: "🇵🇰" },
+  { label: "Arabska", flag: "🇸🇦" },
+  { label: "Żydowska", flag: "🇮🇱" },
+  { label: "Inna", flag: "🌏" },
+];
+
+export const DIET_TYPES = [
+  { label: "Wegetariańska", icon: "leaf-outline", type: "ion" },
+  { label: "Wegańska", icon: "heart-outline", type: "ion" },
+  { label: "Bezglutenowa", icon: "barley-off", type: "mat" },
+  { label: "Keto", icon: "fire", type: "mat" },
+  { label: "Low Carb", icon: "speedometer-slow", type: "mat" },
+  { label: "Białkowa", icon: "arm-flex-outline", type: "mat" },
+  { label: "Bez laktozy", icon: "cup-off-outline", type: "mat" },
+  { label: "Paleo", icon: "bone", type: "mat" },
+  { label: "Niski IG", icon: "trending-down", type: "mat" },
+];
+
+export const UNITS = ["g", "kg", "ml", "szt", "łyżka", "łyżeczka", "szczypta"];

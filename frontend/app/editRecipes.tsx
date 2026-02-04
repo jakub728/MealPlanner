@@ -1,84 +1,83 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  TextInput,
+  ActivityIndicator,
   StyleSheet,
   ScrollView,
+  TextInput,
   TouchableOpacity,
-  Alert,
   Image,
+  Alert,
+  useColorScheme,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, Stack, useRouter } from "expo-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/api/client";
+import Colors from "@/constants/Colors";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../api/client";
-import { useAuthStore } from "@/store/useAuthStore";
-import LoginFirst from "@/components/loginFirst";
-import { useColorScheme } from "@/components/useColorScheme";
-import Colors from "@/constants/Colors";
-import { DISHES, CUISINES, DIET_TYPES, UNITS } from "@/constants/Filters";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { CUISINES, DISHES, DIET_TYPES, UNITS } from "@/constants/Filters";
 
-
-
-export default function AddRecipesScreen() {
+export default function EditRecipeScreen() {
+  const { id } = useLocalSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const colorScheme = useColorScheme() ?? "light";
+  const theme = Colors[colorScheme];
+
   const [title, setTitle] = useState("");
-  const [instructions, setInstructions] = useState<string>("");
+  const [instructions, setInstructions] = useState("");
   const [selectedIngredients, setSelectedIngredients] = useState<any[]>([]);
   const [ingredientName, setIngredientName] = useState("");
   const [amount, setAmount] = useState("");
   const [unit, setUnit] = useState("g");
   const [showUnits, setShowUnits] = useState(false);
   const [image, setImage] = useState<string | null>(null);
-
-  // Stany wyborów
   const [selectedDish, setSelectedDish] = useState<string[]>([]);
-  const [selectedCuisine, setSelectedCuisine] = useState<string>("");
+  const [selectedCuisine, setSelectedCuisine] = useState("");
   const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
-
-  // Stan rozwijania sekcji
   const [expandedSections, setExpandedSections] = useState({
     dish: false,
     cuisine: false,
     diet: false,
   });
 
-  const queryClient = useQueryClient();
-  const { token } = useAuthStore((state) => state);
-  const colorScheme = useColorScheme() ?? "light";
-  const theme = Colors[colorScheme];
+  const { data: recipe, isLoading } = useQuery({
+    queryKey: ["recipe", id],
+    queryFn: async () => {
+      const response = await api.get(`/recipes/${id}`);
+      return response.data;
+    },
+  });
 
-  // Helper do renderowania ikon
-  const renderIcon = (item: any, isSelected: boolean) => {
-    const color = isSelected
-      ? "#fff"
-      : item.type === "mat" && item.icon.includes("flag")
-        ? "#FF5252"
-        : theme.text;
+  useEffect(() => {
+    if (recipe) {
+      setTitle(recipe.title);
+      setInstructions(recipe.instructions);
+      setSelectedIngredients(recipe.ingredients || []);
+      setSelectedCuisine(recipe.cuisine || "");
+      setImage(recipe.imageUrl);
 
-    if (item.type === "mat") {
-      return (
-        <MaterialCommunityIcons
-          name={item.icon as any}
-          size={18}
-          color={color}
-          style={{ marginRight: 6 }}
-        />
-      );
+      try {
+        setSelectedDish(
+          typeof recipe.dish_type === "string"
+            ? JSON.parse(recipe.dish_type)
+            : recipe.dish_type || [],
+        );
+        setSelectedDiets(
+          typeof recipe.diet_type === "string"
+            ? JSON.parse(recipe.diet_type)
+            : recipe.diet_type || [],
+        );
+      } catch (e) {
+        setSelectedDish(recipe.dish_type || []);
+        setSelectedDiets(recipe.diet_type || []);
+      }
     }
-    return (
-      <Ionicons
-        name={item.icon as any}
-        size={18}
-        color={color}
-        style={{ marginRight: 6 }}
-      />
-    );
-  };
+  }, [recipe]);
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -116,111 +115,84 @@ export default function AddRecipesScreen() {
 
   const mutation = useMutation({
     mutationFn: (formData: FormData) =>
-      api.post("/recipes/add", formData, {
+      api.put(`/recipes/edit/${id}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       }),
     onSuccess: () => {
-      setTitle("");
-      setInstructions("");
-      setSelectedIngredients([]);
-      setImage(null);
-      setSelectedDish([]);
-      setSelectedDiets([]);
-      setSelectedCuisine("");
+      queryClient.invalidateQueries({ queryKey: ["recipe", id] });
       queryClient.invalidateQueries({ queryKey: ["myRecipes"] });
-      Alert.alert("Sukces", "Przepis został dodany!", [
-        {
-          text: "OK",
-          onPress: () => router.replace("/myRecipes"),
-        },
+      Alert.alert("Sukces", "Przepis został zaktualizowany!", [
+        { text: "OK", onPress: () => router.back() },
       ]);
     },
     onError: (error: any) =>
-      Alert.alert("Błąd", error.response?.data?.message || "Błąd serwera"),
+      Alert.alert("Błąd", error.response?.data?.message || "Błąd zapisu"),
   });
 
-  const handleAddRecipe = () => {
-    if (
-      !title.trim() ||
-      selectedIngredients.length === 0 ||
-      instructions.trim().length < 10 ||
-      !image ||
-      selectedDish.length < 1
-    ) {
-      Alert.alert(
-        "Błąd",
-        "Uzupełnij wymagane pola (tytuł, zdjęcie, składniki, instrukcje, typ dania)",
-      );
+  const handleUpdateRecipe = () => {
+    if (!title.trim()) {
+      Alert.alert("Błąd", "Tytuł nie może być pusty");
       return;
     }
+
     const formData = new FormData();
-    // 1. ZWYKŁE STRINGI (zostawiamy jak są)
     formData.append("title", title.trim());
     formData.append("instructions", instructions.trim());
     formData.append("cuisine", selectedCuisine);
-    formData.append("status", "private");
-
-    // 2. TABLICE I OBIEKTY (muszą być zstringifikowane, backend je sparsuje)
     formData.append("ingredients", JSON.stringify(selectedIngredients));
     formData.append("dish_type", JSON.stringify(selectedDish));
     formData.append("diet_type", JSON.stringify(selectedDiets));
 
-    formData.append("image", {
-      uri: image,
-      name: "photo.jpg",
-      type: "image/jpeg",
-    } as any);
+    if (image && (image.startsWith("file") || image.startsWith("content"))) {
+      formData.append("image", {
+        uri: image,
+        name: "photo.jpg",
+        type: "image/jpeg",
+      } as any);
+    }
 
     mutation.mutate(formData);
   };
 
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Błąd", "Brak uprawnień!");
-      return;
-    }
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 1,
-    });
-    if (!result.canceled) {
-      const manipResult = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
-        [{ resize: { width: 1024 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG },
-      );
-      setImage(manipResult.uri);
-    }
+  const renderIcon = (item: any, isSelected: boolean) => {
+    const color = isSelected ? "#fff" : theme.text;
+    const IconComponent =
+      item.type === "mat" ? MaterialCommunityIcons : Ionicons;
+    return (
+      <IconComponent
+        name={item.icon as any}
+        size={18}
+        color={color}
+        style={{ marginRight: 6 }}
+      />
+    );
   };
 
-  if (!token) return <LoginFirst />;
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#FF6347" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.background }]}
+      edges={["top", "left", "right", "bottom"]}
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        <Text style={[styles.header, { color: theme.text }]}>
-          Dodaj nowy przepis
-        </Text>
-
+      <Stack.Screen options={{ title: "Edytuj przepis" }} />
+      <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <Text style={[styles.label, { color: theme.text }]}>Tytuł:</Text>
         <TextInput
           style={[
             styles.input,
             {
               backgroundColor: theme.inputBg,
-              borderColor: theme.border,
               color: theme.text,
+              borderColor: theme.border,
             },
           ]}
-          placeholder="Tytuł przepisu"
-          placeholderTextColor={theme.placeholder}
           value={title}
           onChangeText={setTitle}
         />
@@ -229,14 +201,21 @@ export default function AddRecipesScreen() {
         <View style={styles.imageSection}>
           {!image ? (
             <TouchableOpacity
-              onPress={pickImage}
+              onPress={async () => {
+                let result = await ImagePicker.launchImageLibraryAsync({
+                  allowsEditing: true,
+                  aspect: [4, 3],
+                  quality: 1,
+                });
+                if (!result.canceled) setImage(result.assets[0].uri);
+              }}
               style={[
                 styles.imagePicker,
                 { backgroundColor: theme.inputBg, borderColor: theme.tint },
               ]}
             >
               <Text style={{ color: theme.tint, fontWeight: "bold" }}>
-                + Dodaj zdjęcie
+                + Zmień zdjęcie
               </Text>
             </TouchableOpacity>
           ) : (
@@ -577,16 +556,12 @@ export default function AddRecipesScreen() {
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.button,
-            { backgroundColor: theme.tint },
-            mutation.isPending && { backgroundColor: theme.subText },
-          ]}
-          onPress={handleAddRecipe}
+          style={[styles.button, { backgroundColor: theme.tint }]}
+          onPress={handleUpdateRecipe}
           disabled={mutation.isPending}
         >
           <Text style={styles.buttonText}>
-            {mutation.isPending ? "Wysyłanie..." : "Zapisz przepis"}
+            {mutation.isPending ? "Zapisywanie..." : "Zapisz zmiany"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -595,7 +570,7 @@ export default function AddRecipesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingHorizontal: 20 },
+  container: { flex: 1 },
   header: { fontSize: 24, fontWeight: "bold", marginBottom: 20, marginTop: 10 },
   input: {
     borderWidth: 1,

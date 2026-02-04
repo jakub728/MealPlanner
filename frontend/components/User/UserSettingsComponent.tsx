@@ -5,18 +5,23 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  useColorScheme,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useThemeStore } from "@/store/useThemeStore";
+import Colors from "@/constants/Colors";
 
 interface UserSettingsProps {
   onBack: () => void;
 }
 
 const UserSettingsComponent: React.FC<UserSettingsProps> = ({ onBack }) => {
-  // Stan lokalny dla koloru (docelowo powinien być w globalnym store, np. Zustand)
-  const [mainColor, setMainColor] = useState("#FF6347");
+  const { primaryColor, setPrimaryColor } = useThemeStore();
+  const colorScheme = useColorScheme() ?? "light";
+  const theme = Colors[colorScheme];
+  const isDark = colorScheme === "dark";
 
-  // Lista dostępnych kolorów głównych
   const colorPalette = [
     { name: "Tomato", color: "#FF6347" },
     { name: "Ocean", color: "#2E8BC0" },
@@ -28,15 +33,7 @@ const UserSettingsComponent: React.FC<UserSettingsProps> = ({ onBack }) => {
   ];
 
   return (
-    <View style={styles.container}>
-      {/* Przycisk powrotu */}
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Ionicons name="arrow-back" size={24} color={mainColor} />
-        <Text style={[styles.backText, { color: mainColor }]}>
-          Wróć do profilu
-        </Text>
-      </TouchableOpacity>
-
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <Text style={styles.title}>Ustawienia Konta</Text>
 
       <View style={styles.section}>
@@ -50,31 +47,45 @@ const UserSettingsComponent: React.FC<UserSettingsProps> = ({ onBack }) => {
               style={[
                 styles.colorCircle,
                 { backgroundColor: item.color },
-                // Akcent wokół wybranego koloru
-                mainColor === item.color && {
+                primaryColor === item.color && {
                   borderWidth: 3,
                   borderColor: "#00000033",
                 },
               ]}
-              onPress={() => setMainColor(item.color)}
+              onPress={() => setPrimaryColor(item.color)}
             >
-              {mainColor === item.color && (
+              {primaryColor === item.color && (
                 <Ionicons name="checkmark" size={20} color="white" />
               )}
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={[styles.previewText, { color: mainColor }]}>
+        <Text style={[styles.previewText, { color: primaryColor }]}>
           Tak będzie wyglądać Twój kolor przewodniczy
         </Text>
       </View>
 
       {/* Przykładowy przycisk z wybranym kolorem */}
       <TouchableOpacity
-        style={[styles.saveButton, { backgroundColor: mainColor }]}
+        style={[styles.saveButton, { backgroundColor: primaryColor }]}
       >
-        <Text style={styles.saveButtonText}>Zapisz ustawienia</Text>
+        <Text
+          style={styles.saveButtonText}
+          onPress={() => {
+            Alert.alert("Ustawienia", "Zmiany zostały zapisane pomyślnie!", [
+              { text: "OK", onPress: () => onBack() },
+            ]);
+          }}
+        >
+          Zapisz ustawienia
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.backButton} onPress={onBack}>
+        <Ionicons name="arrow-back" size={24} color={primaryColor} />
+        <Text style={[styles.backText, { color: primaryColor }]}>
+          Wróć do profilu
+        </Text>
       </TouchableOpacity>
     </View>
   );

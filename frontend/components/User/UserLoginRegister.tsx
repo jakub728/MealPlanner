@@ -25,6 +25,7 @@ export default function UserLoginRegisterComponent() {
   );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [secureText, setSecureText] = useState(true);
@@ -46,6 +47,10 @@ export default function UserLoginRegisterComponent() {
         const response = await api.post("/auth/login", { email, password });
         await setAuth(response.data.token, response.data.user);
       } else if (authMode === "register") {
+        if (password !== confirmPassword) {
+          Alert.alert("Błąd", "Hasła nie są identyczne!");
+          return;
+        }
         await api.post("/auth/register", { name, email, password });
         Alert.alert("Sukces", "Sprawdź maila, aby zweryfikować konto!");
         setAuthMode("login");
@@ -138,6 +143,30 @@ export default function UserLoginRegisterComponent() {
               secureTextEntry={secureText}
               value={password}
               onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setSecureText(!secureText)}
+              style={styles.eyeIcon}
+            >
+              <Ionicons
+                name={secureText ? "eye-off-outline" : "eye-outline"}
+                size={22}
+                color={theme.text}
+              />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Pole ConfirmPassword ukryte przy resecie i login */}
+        {authMode === "register" && (
+          <View style={[styles.passwordContainer, { borderColor: theme.tint }]}>
+            <TextInput
+              style={[styles.passwordInput, { color: theme.text }]}
+              placeholder="Powtórz hasło"
+              placeholderTextColor="#888"
+              secureTextEntry={secureText}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
             />
             <TouchableOpacity
               onPress={() => setSecureText(!secureText)}

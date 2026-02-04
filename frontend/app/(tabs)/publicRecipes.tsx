@@ -12,41 +12,16 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  ScrollView,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "@/constants/Colors";
 import { LinearGradient } from "expo-linear-gradient";
-
-const CUISINES = [
-  "Polska",
-  "Włoska",
-  "Amerykańska",
-  "Meksykańska",
-  "Hinduska",
-  "Chińska",
-  "Japońska",
-  "Wietnamska",
-  "Koreańska",
-  "Tajska",
-  "Grecka",
-  "Hiszpańska",
-  "Turecka",
-  "Francuska",
-];
-
-const DIET_TYPES = [
-  "Wegetariańska",
-  "Wegańska",
-  "Bezglutenowa",
-  "Keto",
-  "Low Carb",
-  "Bez laktozy",
-  "Wysokobiałkowa",
-];
+import { DISHES, CUISINES, DIET_TYPES } from "@/constants/Filters";
 
 // Włączenie animacji dla Androida
 if (
@@ -56,14 +31,14 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type SortOption = "najnowsze" | "najlepsze" | "a-z" | "z-a";
+type SortOption = "najnowsze" | "najlepsze" | "a-z";
 
 export default function PublicRecipesScreen() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("najnowsze");
-  const [selectedDiet, setSelectedDiet] = useState<string | null>(null);
+  const [selectedDishes, setSelectedDishes] = useState<string[]>([]);
+  const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
-  const [selectedMeat, setSelectedMeat] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const router = useRouter();
@@ -89,6 +64,15 @@ export default function PublicRecipesScreen() {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  const toggleFilter = (
+    setFn: React.Dispatch<React.SetStateAction<string[]>>,
+    value: string,
+  ) => {
+    setFn((prev) =>
+      prev.includes(value) ? prev.filter((i) => i !== value) : [...prev, value],
+    );
+  };
+
   const toggleCuisine = (cuisine: string) => {
     setSelectedCuisines((prev) =>
       prev.includes(cuisine)
@@ -108,21 +92,33 @@ export default function PublicRecipesScreen() {
         r.title.toLowerCase().includes(search.toLowerCase()),
       );
     }
-    if (selectedDiet) {
-      list = list.filter((r: any) => r.diet_type?.includes(selectedDiet));
+
+    // Filtrowanie DISHES (Multi)
+    if (selectedDishes.length > 0) {
+      list = list.filter((r: any) =>
+        r.dish_type?.some((type: string) => selectedDishes.includes(type)),
+      );
     }
+
+    // Filtrowanie DIETS (Multi)
+    if (selectedDiets.length > 0) {
+      list = list.filter((r: any) =>
+        r.diet_type?.some((diet: string) => selectedDiets.includes(diet)),
+      );
+    }
+
+    // Filtrowanie CUISINES (Multi)
     if (selectedCuisines.length > 0) {
       list = list.filter((r: any) => selectedCuisines.includes(r.cuisine));
     }
-    if (selectedMeat) {
-      list = list.filter((r: any) => r.meat_type === selectedMeat);
-    }
 
-    return list.sort((a: any, b: any) => {
+    // Sortowanie
+    return [...list].sort((a: any, b: any) => {
       if (sortBy === "a-z") return a.title.localeCompare(b.title);
       if (sortBy === "najnowsze")
         return (
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime()
         );
       if (sortBy === "najlepsze") {
         const getAvg = (n: number[]) =>
@@ -136,9 +132,9 @@ export default function PublicRecipesScreen() {
     myRecipes,
     search,
     sortBy,
-    selectedDiet,
+    selectedDishes,
+    selectedDiets,
     selectedCuisines,
-    selectedMeat,
   ]);
 
   const FilterChip = ({
@@ -240,62 +236,154 @@ export default function PublicRecipesScreen() {
       {/* Rozwijane menu wertykalne */}
       {isMenuOpen && (
         <View style={[styles.filterMenu, { backgroundColor: theme.card }]}>
-          <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-            Sortowanie
-          </Text>
-          <View style={styles.chipGroup}>
-            {(["najnowsze", "najlepsze", "a-z"] as SortOption[]).map((opt) => (
-              <FilterChip
-                key={opt}
-                label={opt.toUpperCase()}
-                active={sortBy === opt}
-                onPress={() => setSortBy(opt)}
-              />
-            ))}
-          </View>
+          <ScrollView
+            style={{ maxHeight: 450 }} // Ograniczamy wysokość, żeby nie zasłonić całej listy
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
+            {/* SORTOWANIE */}
+            <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+              Sortowanie
+            </Text>
+            <View style={styles.chipGroup}>
+              {(["najnowsze", "najlepsze", "a-z", "z-a"] as SortOption[]).map(
+                (opt) => (
+                  <FilterChip
+                    key={opt}
+                    label={opt.toUpperCase()}
+                    active={sortBy === opt}
+                    onPress={() => setSortBy(opt)}
+                  />
+                ),
+              )}
+            </View>
 
-          <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-            Rodzaj diety
-          </Text>
-          <View style={styles.chipGroup}>
-            {DIET_TYPES.map((diet) => (
-              <FilterChip
-                key={diet}
-                label={diet}
-                active={selectedDiet === diet}
-                onPress={() =>
-                  setSelectedDiet(selectedDiet === diet ? null : diet)
-                }
-              />
-            ))}
-          </View>
+            {/* RODZAJ DANIA */}
+            <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+              Rodzaj dania
+            </Text>
+            <View style={styles.chipGroup}>
+              {DISHES.map((dish) => (
+                <TouchableOpacity
+                  key={dish.value}
+                  style={[
+                    styles.chip,
+                    selectedDishes.includes(dish.value) && styles.activeChip,
+                    styles.chipWithIcon,
+                  ]}
+                  onPress={() => toggleFilter(setSelectedDishes, dish.value)}
+                >
+                  {dish.type === "mat" ? (
+                    <MaterialCommunityIcons
+                      name={dish.icon as any}
+                      size={18}
+                      style={{ textAlign: "center" }}
+                      color={
+                        selectedDishes.includes(dish.label) ? "#FF6347" : "#666"
+                      }
+                    />
+                  ) : (
+                    <Ionicons
+                      name={dish.icon as any}
+                      size={18}
+                      style={{ textAlign: "center" }}
+                      color={
+                        selectedDishes.includes(dish.label) ? "#FF6347" : "#666"
+                      }
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selectedDishes.includes(dish.value) &&
+                        styles.activeChipText,
+                    ]}
+                  >
+                    {dish.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-            Kuchnia
-          </Text>
-          <View style={styles.chipGroup}>
-            {CUISINES.map((c) => (
-              <FilterChip
-                key={c}
-                label={c}
-                active={selectedCuisines.includes(c)}
-                onPress={() => toggleCuisine(c)}
-              />
-            ))}
-          </View>
-          {/* <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
-            Mięso
-          </Text>
-          <View style={styles.chipGroup}>
-            {["Kurczak", "Wołowina", "Wieprzowina"].map((m) => (
-              <FilterChip
-                key={m}
-                label={m}
-                active={selectedMeat === m}
-                onPress={() => setSelectedMeat(selectedMeat === m ? null : m)}
-              />
-            ))}
-          </View> */}
+            {/* RODZAJ DIETY */}
+            <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+              Rodzaj diety
+            </Text>
+            <View style={styles.chipGroup}>
+              {DIET_TYPES.map((diet) => (
+                <TouchableOpacity
+                  key={diet.label}
+                  style={[
+                    styles.chip,
+                    selectedDiets.includes(diet.label) && styles.activeChip,
+                    styles.chipWithIcon,
+                  ]}
+                  onPress={() => toggleFilter(setSelectedDiets, diet.label)}
+                >
+                  {diet.type === "mat" ? (
+                    <MaterialCommunityIcons
+                      name={diet.icon as any}
+                      size={18}
+                      style={{ textAlign: "center" }}
+                      color={
+                        selectedDishes.includes(diet.label) ? "#FF6347" : "#666"
+                      }
+                    />
+                  ) : (
+                    <Ionicons
+                      name={diet.icon as any}
+                      size={18}
+                      style={{ textAlign: "center" }}
+                      color={
+                        selectedDishes.includes(diet.label) ? "#FF6347" : "#666"
+                      }
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.chipText,
+                      selectedDiets.includes(diet.label) &&
+                        styles.activeChipText,
+                    ]}
+                  >
+                    {diet.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* KUCHNIA */}
+            <Text style={[styles.filterSectionTitle, { color: theme.text }]}>
+              Kuchnia
+            </Text>
+            <View style={styles.chipGroup}>
+              {CUISINES.map((c) => (
+                <FilterChip
+                  key={c.label}
+                  label={`${c.flag} ${c.label}`}
+                  active={selectedCuisines.includes(c.label)}
+                  onPress={() => toggleFilter(setSelectedCuisines, c.label)}
+                />
+              ))}
+            </View>
+
+            {/* PRZYCISK RESETU */}
+            {(selectedDishes.length > 0 ||
+              selectedDiets.length > 0 ||
+              selectedCuisines.length > 0) && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedDishes([]);
+                  setSelectedDiets([]);
+                  setSelectedCuisines([]);
+                }}
+                style={styles.resetButton}
+              >
+                <Ionicons name="refresh-circle" size={20} color="#FF6347" />
+                <Text style={styles.resetText}>Wyczyść wszystkie filtry</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
         </View>
       )}
 
@@ -408,4 +496,26 @@ const styles = StyleSheet.create({
   cardContent: { width: "100%" },
   emptyState: { alignItems: "center", marginTop: 100 },
   emptyText: { marginTop: 10, fontSize: 16 },
+  chipWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  resetButton: {
+    marginTop: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#FF6347",
+    borderRadius: 12,
+    borderStyle: "dashed",
+  },
+  resetText: {
+    color: "#FF6347",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
 });

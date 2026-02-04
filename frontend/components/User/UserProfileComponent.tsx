@@ -55,6 +55,7 @@ const UserProfileComponent = () => {
           const toBuy = shoppingData.filter(
             (item: any) => !item.purchased && !item.have_at_home,
           ).length;
+
           setLocalShoppingCount(toBuy);
         }
       } else {
@@ -79,6 +80,7 @@ const UserProfileComponent = () => {
     queryKey: ["userMe"],
     queryFn: async () => {
       const response = await api.get("/auth/me");
+
       return response.data;
     },
     enabled: !!token,
@@ -187,40 +189,6 @@ const UserProfileComponent = () => {
           </View>
         )}
 
-        {/* Sekcja Znajomych */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Znajomi ({userData?.friends?.length || 0})
-          </Text>
-          <TouchableOpacity>
-            <Text style={{ color: "#FF6347" }}>Zobacz wszystkich</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View
-          style={[styles.friendsContainer, { backgroundColor: theme.card }]}
-        >
-          {userData?.friends && userData.friends.length > 0 ? (
-            userData.friends.slice(0, 4).map((friend: any, idx: number) => (
-              <View key={idx} style={styles.friendItem}>
-                <View style={styles.friendAvatarSmall}>
-                  <Ionicons name="person-circle" size={30} color="#ccc" />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.friendName, { color: theme.text }]}
-                >
-                  {friend.name || "Znajomy"}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.subText }]}>
-              Dodaj znajomych (wkrótce dostępne)!
-            </Text>
-          )}
-        </View>
-
         {/* Menu Ustawień */}
         <View
           style={[
@@ -236,7 +204,6 @@ const UserProfileComponent = () => {
             <Text style={[styles.menuText, { color: theme.text }]}>
               Ustawienia
             </Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>
         </View>
 
