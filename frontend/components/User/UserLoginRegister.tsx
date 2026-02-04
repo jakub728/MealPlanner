@@ -96,6 +96,7 @@ export default function UserLoginRegisterComponent() {
 
   return (
     <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={{ flex: 1, backgroundColor: theme.background }}
     >
       <View style={styles.container}>

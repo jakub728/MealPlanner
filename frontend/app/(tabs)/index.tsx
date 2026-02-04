@@ -32,6 +32,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import Colors from "@/constants/Colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useThemeStore } from "@/store/useThemeStore";
+import LoginFirst from "@/components/loginFirst";
 
 const MEAL_TYPES = [
   "śniadanie",
@@ -226,6 +227,8 @@ export default function PlannerScreen() {
       )
       .sort((a: any, b: any) => a.title.localeCompare(b.title)); // Sortowanie A-Z
   }, [myRecipes, recipeSearch]);
+
+  if (!token) return <LoginFirst placeholder=" aby zacząć planować" />;
 
   return (
     <SafeAreaView
