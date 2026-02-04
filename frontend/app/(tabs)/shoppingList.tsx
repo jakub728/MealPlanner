@@ -91,7 +91,6 @@ export default function ShoppingList() {
     const sectionArray = Object.keys(groups)
       .sort()
       .map((date) => {
-        // Sortowanie wewnątrz sekcji: najpierw do kupienia, potem kupione/w domu
         const sortedItems = groups[date].sort((a, b) => {
           const aDone = a.purchased || a.have_at_home;
           const bDone = b.purchased || b.have_at_home;
@@ -332,7 +331,7 @@ export default function ShoppingList() {
           )}
         </TouchableOpacity>
       </View>
-      {!sections || sections.length < 0 ? (
+      {sections && sections.length > 0 ? (
         <SectionList
           sections={sections}
           keyExtractor={(item) => item._id}

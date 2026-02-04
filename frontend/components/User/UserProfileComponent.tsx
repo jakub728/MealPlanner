@@ -18,6 +18,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import Colors from "@/constants/Colors";
 import UserSettingsComponent from "./UserSettingsComponent";
 
+
 const CALENDAR_STORAGE_KEY = "user_calendar_data";
 const SHOPPING_LIST_KEY = "shopping_list_data";
 
@@ -31,6 +32,7 @@ const UserProfileComponent = () => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
+  
 
   const loadLocalStorageData = useCallback(async () => {
     try {
@@ -55,6 +57,7 @@ const UserProfileComponent = () => {
           const toBuy = shoppingData.filter(
             (item: any) => !item.purchased && !item.have_at_home,
           ).length;
+
           setLocalShoppingCount(toBuy);
         }
       } else {
@@ -79,11 +82,13 @@ const UserProfileComponent = () => {
     queryKey: ["userMe"],
     queryFn: async () => {
       const response = await api.get("/auth/me");
+
       return response.data;
     },
     enabled: !!token,
     retry: false,
   });
+
 
   // 2. Pobierz przepisy prywatne użytkownika
   const { data: privateRecipes } = useQuery({

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   ImageBackground,
+  TextInput,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,7 +29,6 @@ import {
 import { api } from "../../api/client";
 import { pl } from "date-fns/locale";
 import { useAuthStore } from "@/store/useAuthStore";
-import LoginFirst from "@/components/loginFirst";
 import Colors from "@/constants/Colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -67,6 +67,7 @@ export default function PlannerScreen() {
   const [fullCalendar, setFullCalendar] = useState<any[]>([]);
   const [isLocalLoading, setIsLocalLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [recipeSearch, setRecipeSearch] = useState("");
 
   const { token } = useAuthStore((state) => state);
   const colorScheme = useColorScheme() ?? "light";
@@ -194,20 +195,35 @@ export default function PlannerScreen() {
     end: addDays(startOfCurrentWeek, daysToShow - 1),
   });
 
-
   // 4. Ładowanie przepisów
   const { data: myRecipes, isLoading: recipesLoading } = useQuery({
     queryKey: ["myRecipes"],
     queryFn: async () => {
-      const response = await api.get("/recipes/private");
-      return response.data;
+      const [privateRes, likedRes] = await Promise.all([
+        api.get("/recipes/private"),
+        api.get("/recipes/liked"),
+      ]);
+
+      const combined = [...privateRes.data, ...likedRes.data];
+      const unique = Array.from(
+        new Map(combined.map((item) => [item._id, item])).values(),
+      );
+
+      return unique;
     },
     enabled: !!token && modalVisible,
   });
 
-  if (!token) {
-    return <LoginFirst placeholder=" aby zacząć planować posiłki" />;
-  }
+  // 5. Szukanie po nazwie przy dodawaniu przepisu
+  const filteredModalRecipes = useMemo(() => {
+    if (!myRecipes) return [];
+
+    return myRecipes
+      .filter((r: any) =>
+        r.title.toLowerCase().includes(recipeSearch.toLowerCase()),
+      )
+      .sort((a: any, b: any) => a.title.localeCompare(b.title)); // Sortowanie A-Z
+  }, [myRecipes, recipeSearch]);
 
   return (
     <SafeAreaView
@@ -256,7 +272,7 @@ export default function PlannerScreen() {
                     { color: isSelected ? "#FF6347" : theme.subText },
                   ]}
                 >
-                  {format(day, "eee", { locale: pl })}
+                  {format(day, "eeeeee", { locale: pl })}
                 </Text>
                 <Text style={[styles.dayNum, { color: theme.text }]}>
                   {format(day, "d")}
@@ -313,17 +329,84 @@ export default function PlannerScreen() {
               <Text style={[styles.modalTitle, { color: theme.text }]}>
                 Wybierz przepis
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalVisible(false);
+                  setRecipeSearch(""); // Czyścimy szukanie przy zamknięciu
+                }}
+              >
                 <Ionicons name="close" size={28} color={theme.text} />
               </TouchableOpacity>
+            </View>
+
+            {/* NOWY PASEK WYSZUKIWANIA */}
+            <View
+              style={[
+                styles.modalSearchContainer,
+                { backgroundColor: isDark ? "#333" : "#f0f0f0" },
+              ]}
+            >
+              <Ionicons
+                name="search"
+                size={20}
+                color={theme.subText}
+                style={{ marginLeft: 10 }}
+              />
+              <TextInput
+                placeholder="Szukaj w swoich przepisach..."
+                placeholderTextColor={theme.subText}
+                style={[styles.modalSearchInput, { color: theme.text }]}
+                value={recipeSearch}
+                onChangeText={setRecipeSearch}
+              />
+              {recipeSearch.length > 0 && (
+                <TouchableOpacity onPress={() => setRecipeSearch("")}>
+                  <Ionicons
+                    name="close-circle"
+                    size={20}
+                    color={theme.subText}
+                    style={{ marginRight: 10 }}
+                  />
+                </TouchableOpacity>
+              )}
             </View>
 
             {recipesLoading ? (
               <ActivityIndicator color="#FF6347" style={{ margin: 20 }} />
             ) : (
               <FlatList
-                data={myRecipes}
+                data={filteredModalRecipes}
                 keyExtractor={(item) => item._id}
+                ListEmptyComponent={() => (
+                  <View style={styles.emptyRecipesModal}>
+                    <Ionicons
+                      name="heart-dislike-outline"
+                      size={50}
+                      color={theme.subText}
+                    />
+                    <Text
+                      style={[styles.emptyRecipesText, { color: theme.text }]}
+                    >
+                      Brak przepisów
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.goToExploreBtn}
+                      onPress={() => {
+                        setModalVisible(false);
+                      }}
+                    >
+                      <Text
+                        style={{ color: "#fff", fontWeight: "bold" }}
+                        onPress={() => {
+                          setModalVisible(false);
+                          router.push("/publicRecipes");
+                        }}
+                      >
+                        Znajdź więcej przepisów
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
                 renderItem={({ item }) => {
                   const isExpandedRecipe = selectedRecipeId === item._id;
                   return (
@@ -688,5 +771,36 @@ const styles = StyleSheet.create({
   recipeImageOverlay: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 12,
+  },
+  emptyRecipesModal: {
+    padding: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyRecipesText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 15,
+    lineHeight: 24,
+    opacity: 0.8,
+  },
+  goToExploreBtn: {
+    marginTop: 20,
+    backgroundColor: "#FF6347",
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 25,
+  },
+  modalSearchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 12,
+    marginBottom: 15,
+    height: 45,
+  },
+  modalSearchInput: {
+    flex: 1,
+    paddingHorizontal: 10,
+    fontSize: 16,
   },
 });

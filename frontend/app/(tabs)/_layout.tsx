@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Link, Tabs } from "expo-router";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -14,6 +14,16 @@ function TabBarIcon(props: {
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { token } = useAuthStore((state) => state);
+  const init = useAuthStore((state) => state.init);
+  const isHydrated = useAuthStore((state) => state.isHydrated);
+
+  useEffect(() => {
+    init();
+  }, []);
+
+  if (!isHydrated) {
+    return null;
+  }
 
   return (
     <Tabs
@@ -32,16 +42,6 @@ export default function TabLayout() {
           ),
         }}
       />
-
-      <Tabs.Screen
-        name="myRecipes"
-        options={{
-          title: "Moje",
-          tabBarIcon: ({ color }) => (
-            <FontAwesome name="book" size={28} color={color} />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="shoppingList"
         options={{
@@ -52,9 +52,19 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="myRecipes"
+        options={{
+          title: "Moje",
+          tabBarIcon: ({ color }) => (
+            <FontAwesome name="book" size={28} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="publicRecipes"
         options={{
-          title: "Przepisy",
+          title: "Szukaj",
           tabBarIcon: ({ color }) => (
             <FontAwesome name="search" size={28} color={color} />
           ),
