@@ -18,7 +18,6 @@ import { useAuthStore } from "@/store/useAuthStore";
 import Colors from "@/constants/Colors";
 import UserSettingsComponent from "./UserSettingsComponent";
 
-
 const CALENDAR_STORAGE_KEY = "user_calendar_data";
 const SHOPPING_LIST_KEY = "shopping_list_data";
 
@@ -32,7 +31,6 @@ const UserProfileComponent = () => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
-  
 
   const loadLocalStorageData = useCallback(async () => {
     try {
@@ -88,7 +86,6 @@ const UserProfileComponent = () => {
     enabled: !!token,
     retry: false,
   });
-
 
   // 2. Pobierz przepisy prywatne użytkownika
   const { data: privateRecipes } = useQuery({
@@ -192,40 +189,6 @@ const UserProfileComponent = () => {
           </View>
         )}
 
-        {/* Sekcja Znajomych */}
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Znajomi ({userData?.friends?.length || 0})
-          </Text>
-          <TouchableOpacity>
-            <Text style={{ color: "#FF6347" }}>Zobacz wszystkich</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View
-          style={[styles.friendsContainer, { backgroundColor: theme.card }]}
-        >
-          {userData?.friends && userData.friends.length > 0 ? (
-            userData.friends.slice(0, 4).map((friend: any, idx: number) => (
-              <View key={idx} style={styles.friendItem}>
-                <View style={styles.friendAvatarSmall}>
-                  <Ionicons name="person-circle" size={30} color="#ccc" />
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.friendName, { color: theme.text }]}
-                >
-                  {friend.name || "Znajomy"}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyText, { color: theme.subText }]}>
-              Dodaj znajomych (wkrótce dostępne)!
-            </Text>
-          )}
-        </View>
-
         {/* Menu Ustawień */}
         <View
           style={[
@@ -241,7 +204,6 @@ const UserProfileComponent = () => {
             <Text style={[styles.menuText, { color: theme.text }]}>
               Ustawienia
             </Text>
-            <Ionicons name="chevron-forward" size={20} color={theme.subText} />
           </TouchableOpacity>
         </View>
 

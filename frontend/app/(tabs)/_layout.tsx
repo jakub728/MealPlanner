@@ -3,6 +3,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Link, Tabs } from "expo-router";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useColorScheme } from "@/components/useColorScheme";
+import { useThemeStore } from "@/store/useThemeStore";
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>["name"];
@@ -16,6 +17,7 @@ export default function TabLayout() {
   const { token } = useAuthStore((state) => state);
   const init = useAuthStore((state) => state.init);
   const isHydrated = useAuthStore((state) => state.isHydrated);
+  const { primaryColor } = useThemeStore();
 
   useEffect(() => {
     init();
@@ -29,7 +31,7 @@ export default function TabLayout() {
     <Tabs
       initialRouteName="myProfile"
       screenOptions={{
-        tabBarActiveTintColor: "#FF6347",
+        tabBarActiveTintColor: primaryColor,
         headerShown: false,
       }}
     >
@@ -38,7 +40,7 @@ export default function TabLayout() {
         options={{
           title: "Planer",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="calendar" size={28} color={color} />
+            <FontAwesome name="calendar" size={28} color={primaryColor} />
           ),
         }}
       />
@@ -47,7 +49,7 @@ export default function TabLayout() {
         options={{
           title: "Lista",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="shopping-cart" size={28} color={color} />
+            <FontAwesome name="shopping-cart" size={28} color={primaryColor} />
           ),
         }}
       />
@@ -56,7 +58,7 @@ export default function TabLayout() {
         options={{
           title: "Moje",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="book" size={28} color={color} />
+            <FontAwesome name="book" size={28} color={primaryColor} />
           ),
         }}
       />
@@ -66,7 +68,7 @@ export default function TabLayout() {
         options={{
           title: "Szukaj",
           tabBarIcon: ({ color }) => (
-            <FontAwesome name="search" size={28} color={color} />
+            <FontAwesome name="search" size={28} color={primaryColor} />
           ),
         }}
       />
@@ -76,7 +78,7 @@ export default function TabLayout() {
           options={{
             title: "Profil",
             tabBarIcon: ({ color }) => (
-              <FontAwesome name="user" size={28} color={color} />
+              <FontAwesome name="user" size={28} color={primaryColor} />
             ),
           }}
         />
@@ -86,7 +88,7 @@ export default function TabLayout() {
           options={{
             title: "Zaloguj",
             tabBarIcon: ({ color }) => (
-              <FontAwesome name="sign-in" size={28} color={color} />
+              <FontAwesome name="sign-in" size={28} color={primaryColor} />
             ),
           }}
         />

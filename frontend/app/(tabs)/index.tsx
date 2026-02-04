@@ -31,6 +31,7 @@ import { pl } from "date-fns/locale";
 import { useAuthStore } from "@/store/useAuthStore";
 import Colors from "@/constants/Colors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useThemeStore } from "@/store/useThemeStore";
 
 const MEAL_TYPES = [
   "śniadanie",
@@ -69,6 +70,7 @@ export default function PlannerScreen() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [recipeSearch, setRecipeSearch] = useState("");
 
+  const { primaryColor } = useThemeStore();
   const { token } = useAuthStore((state) => state);
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
@@ -259,17 +261,24 @@ export default function PlannerScreen() {
                         ? "#444"
                         : "#747272"
                       : theme.card,
-                    borderColor: isSelected ? "#FF6347" : theme.border,
+                    borderColor: isSelected ? primaryColor : theme.border,
                     borderWidth: isSelected ? 2 : 1,
                   },
                 ]}
                 onPress={() => setSelectedDate(day)}
               >
-                {isToday && <View style={styles.todayUnderline} />}
+                {isToday && (
+                  <View
+                    style={[
+                      styles.todayUnderline,
+                      { backgroundColor: primaryColor },
+                    ]}
+                  />
+                )}
                 <Text
                   style={[
                     styles.dayName,
-                    { color: isSelected ? "#FF6347" : theme.subText },
+                    { color: isSelected ? primaryColor : theme.subText },
                   ]}
                 >
                   {format(day, "eeeeee", { locale: pl })}
@@ -306,13 +315,13 @@ export default function PlannerScreen() {
           style={styles.expandButton}
           onPress={() => setIsExpanded(!isExpanded)}
         >
-          <Text style={styles.expandButtonText}>
+          <Text style={[styles.expandButtonText, { color: primaryColor }]}>
             {isExpanded ? "Pokaż mniej" : "Pokaż kolejny tydzień"}
           </Text>
           <Ionicons
             name={isExpanded ? "chevron-up" : "chevron-down"}
             size={16}
-            color="#FF6347"
+            color={primaryColor}
           />
         </TouchableOpacity>
       </View>
@@ -372,7 +381,7 @@ export default function PlannerScreen() {
             </View>
 
             {recipesLoading ? (
-              <ActivityIndicator color="#FF6347" style={{ margin: 20 }} />
+              <ActivityIndicator color={primaryColor} style={{ margin: 20 }} />
             ) : (
               <FlatList
                 data={filteredModalRecipes}
@@ -457,7 +466,7 @@ export default function PlannerScreen() {
                               isExpandedRecipe ? "chevron-up" : "add-circle"
                             }
                             size={28}
-                            color="#FF6347"
+                            color={primaryColor}
                           />
                         </TouchableOpacity>
 
@@ -511,13 +520,15 @@ export default function PlannerScreen() {
               style={styles.addButton}
               onPress={() => setModalVisible(true)}
             >
-              <Ionicons name="add-circle" size={24} color="#FF6347" />
-              <Text style={styles.addButtonText}>Dodaj danie</Text>
+              <Ionicons name="add-circle" size={24} color={primaryColor} />
+              <Text style={[styles.addButtonText, { color: primaryColor }]}>
+                Dodaj danie
+              </Text>
             </TouchableOpacity>
           </View>
 
           {isLocalLoading ? (
-            <ActivityIndicator color="#FF6347" style={{ marginTop: 20 }} />
+            <ActivityIndicator color={primaryColor} style={{ marginTop: 20 }} />
           ) : dayPlan.length > 0 ? (
             [...dayPlan]
               .sort(
@@ -586,7 +597,7 @@ export default function PlannerScreen() {
                       <Ionicons
                         name="trash-outline"
                         size={22}
-                        color={isDark ? "#FF6347" : "#333"}
+                        color={isDark ? primaryColor : "#333"}
                       />
                     </TouchableOpacity>
                   </ImageBackground>
