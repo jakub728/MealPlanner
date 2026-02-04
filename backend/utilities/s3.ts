@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import multer from "multer";
 import multerS3 from "multer-s3";
 
@@ -29,5 +29,14 @@ const createMulterUpload = (folder: string) => {
   });
 };
 
+export const deleteFileFromS3 = async (key: string) => {
+  const command = new DeleteObjectCommand({
+    Bucket: process.env.AWS_BUCKET_NAME,
+    Key: key,
+  });
+  return await s3.send(command);
+};
+
 export const uploadRecipe = createMulterUpload("recipes");
 export const uploadUserAvatar = createMulterUpload("users");
+
