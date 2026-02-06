@@ -9,12 +9,14 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import Colors from "@/constants/Colors";
+import { useThemeStore } from "@/store/useThemeStore";
 
 export default function LoginFirst({ placeholder }: { placeholder?: string }) {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
+  const { primaryColor } = useThemeStore();
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
@@ -28,7 +30,7 @@ export default function LoginFirst({ placeholder }: { placeholder?: string }) {
           name="lock-closed-outline"
           style={{ borderRadius: 50 }}
           size={80}
-          color="#FF6347"
+          color={primaryColor}
         />
       </View>
 
@@ -37,7 +39,10 @@ export default function LoginFirst({ placeholder }: { placeholder?: string }) {
       </Text>
 
       <TouchableOpacity
-        style={styles.button}
+        style={[
+          styles.button,
+          { backgroundColor: primaryColor, shadowColor: primaryColor },
+        ]}
         onPress={() => router.push("/(tabs)/myProfile")}
       >
         <Text style={styles.buttonText}>Przejdź do logowania</Text>
@@ -71,14 +76,11 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   button: {
-    backgroundColor: "#FF6347",
     paddingVertical: 15,
     paddingHorizontal: 40,
     borderRadius: 12,
     width: "100%",
     alignItems: "center",
-    // Cień dopasowany do koloru marki
-    shadowColor: "#FF6347",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 5,

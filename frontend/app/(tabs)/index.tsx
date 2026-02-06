@@ -84,7 +84,7 @@ export default function PlannerScreen() {
     try {
       setIsLocalLoading(true);
 
-      // a) Ładowanie i czyszczenie kalendarza (zostawiamy obecny tydzień)
+      // a) Ładowanie i czyszczenie kalendarza
       const calData = await AsyncStorage.getItem(CALENDAR_STORAGE_KEY);
       let parsedCal = calData ? JSON.parse(calData) : [];
       const startOfThisWeek = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -92,7 +92,7 @@ export default function PlannerScreen() {
         (item: any) => !isBefore(new Date(item.date), startOfThisWeek),
       );
 
-      // b) Ładowanie i czyszczenie zakupów (usuwamy wszystko przed dzisiaj)
+      // b) Ładowanie i czyszczenie zakupów
       const shopData = await AsyncStorage.getItem(SHOPPING_LIST_KEY);
       let parsedShop = shopData ? JSON.parse(shopData) : [];
       const today = startOfDay(new Date());
@@ -100,7 +100,7 @@ export default function PlannerScreen() {
         (item: any) => !isBefore(new Date(item.date), today),
       );
 
-      // c) Zapisujemy wyczyszczone dane
+      // c) Wyczyszczone dane
       setFullCalendar(freshCal);
       await AsyncStorage.setItem(
         CALENDAR_STORAGE_KEY,
@@ -344,14 +344,14 @@ export default function PlannerScreen() {
               <TouchableOpacity
                 onPress={() => {
                   setModalVisible(false);
-                  setRecipeSearch(""); // Czyścimy szukanie przy zamknięciu
+                  setRecipeSearch("");
                 }}
               >
                 <Ionicons name="close" size={28} color={theme.text} />
               </TouchableOpacity>
             </View>
 
-            {/* NOWY PASEK WYSZUKIWANIA */}
+            {/* PASEK WYSZUKIWANIA */}
             <View
               style={[
                 styles.modalSearchContainer,
@@ -454,7 +454,7 @@ export default function PlannerScreen() {
                         >
                           <Text
                             style={{
-                              color: "#FFFFFF", // Biały tekst lepiej wygląda na zdjęciu
+                              color: "#FFFFFF",
                               fontSize: 16,
                               fontWeight: "bold",
                               textShadowColor: "rgba(0, 0, 0, 0.75)",
@@ -484,7 +484,7 @@ export default function PlannerScreen() {
                                     {
                                       backgroundColor:
                                         "rgba(255, 255, 255, 0.9)",
-                                    }, // Jasne przyciski na ciemnym tle
+                                    },
                                   ]}
                                   onPress={() => handleAddMeal(type)}
                                 >

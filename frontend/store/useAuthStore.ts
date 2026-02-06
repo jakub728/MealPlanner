@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
 
-
 interface AuthState {
   token: string | null;
   user: { id: string; name: string; email: string } | null;
@@ -17,10 +16,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   isHydrated: false,
   setAuth: async (token, user) => {
     await SecureStore.setItemAsync("userToken", token);
-    set({ token, user });
+    await SecureStore.setItemAsync("userData", JSON.stringify(user));
+    set({ token, user, isHydrated: true });
   },
   logout: async () => {
     await SecureStore.deleteItemAsync("userToken");
+    await SecureStore.deleteItemAsync("userData");
     set({ token: null, user: null });
   },
   init: async () => {
@@ -31,10 +32,10 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (token && userData) {
         set({ token, user: JSON.parse(userData), isHydrated: true });
       } else {
-        set({ isHydrated: true });
+        set({ isHydrated: true, token: null, user: null });
       }
     } catch (e) {
-      set({ isHydrated: true });
+      set({ isHydrated: true, token: null, user: null });
     }
   },
 }));

@@ -18,6 +18,7 @@ import Colors from "../../constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import logoWhite from "../../assets/images/onion-meal-planner.png";
 import logoBlack from "../../assets/images/onion-meal-planner-icon.png";
+import { useThemeStore } from "@/store/useThemeStore";
 
 export default function UserLoginRegisterComponent() {
   const [authMode, setAuthMode] = useState<"login" | "register" | "reset">(
@@ -29,6 +30,7 @@ export default function UserLoginRegisterComponent() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [secureText, setSecureText] = useState(true);
+  const { primaryColor } = useThemeStore();
 
   const setAuth = useAuthStore((state) => state.setAuth);
 
@@ -136,7 +138,9 @@ export default function UserLoginRegisterComponent() {
 
         {/* Pole Hasło ukryte przy resecie */}
         {authMode !== "reset" && (
-          <View style={[styles.passwordContainer, { borderColor: theme.tint }]}>
+          <View
+            style={[styles.passwordContainer, { borderColor: primaryColor }]}
+          >
             <TextInput
               style={[styles.passwordInput, { color: theme.text }]}
               placeholder="Hasło"
@@ -184,7 +188,7 @@ export default function UserLoginRegisterComponent() {
 
         {/* Główny przycisk akcji */}
         <TouchableOpacity
-          style={styles.button}
+          style={[styles.button, { backgroundColor: primaryColor }]}
           onPress={handleMainAction}
           disabled={loading}
         >
@@ -224,7 +228,7 @@ export default function UserLoginRegisterComponent() {
                 >
                   <Text
                     style={{
-                      color: "#FF6347",
+                      color: primaryColor,
                       textAlign: "center",
                       fontWeight: "bold",
                     }}
@@ -250,8 +254,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   logo: {
-    width: 120, // Dostosuj szerokość do własnych potrzeb
-    height: 120, // Dostosuj wysokość
+    width: 120,
+    height: 120,
     alignSelf: "center",
     marginBottom: 20,
   },
@@ -263,7 +267,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   button: {
-    backgroundColor: "#FF6347",
     padding: 15,
     borderRadius: 8,
     alignItems: "center",

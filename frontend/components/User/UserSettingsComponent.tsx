@@ -1,16 +1,15 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
   useColorScheme,
-  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useThemeStore } from "@/store/useThemeStore";
 import Colors from "@/constants/Colors";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface UserSettingsProps {
   onBack: () => void;
@@ -20,73 +19,68 @@ const UserSettingsComponent: React.FC<UserSettingsProps> = ({ onBack }) => {
   const { primaryColor, setPrimaryColor } = useThemeStore();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
-  const isDark = colorScheme === "dark";
+  const { logout } = useAuthStore();
 
   const colorPalette = [
-    { name: "Tomato", color: "#FF6347" },
-    { name: "Ocean", color: "#2E8BC0" },
-    { name: "Forest", color: "#228B22" },
-    { name: "Royal", color: "#4169E1" },
-    { name: "Purple", color: "#800080" },
-    { name: "Pink", color: "#FF69B4" },
-    { name: "Orange", color: "#FF8C00" },
+    { name: "Yellow", color: "#ffee00" },
+    { name: "Orange", color: "#ff6600" },
+    { name: "Red", color: "#ff0000" },
+    { name: "Pink", color: "#ff399c" },
+    { name: "Lightpurple", color: "#cc00ff" },
+    { name: "Purple", color: "#741874" },
+    { name: "Blue", color: "#00ffdd" },
+    { name: "Royal", color: "#003ffd" },
+    { name: "Green", color: "#07e907" },
+    { name: "Darkgreen", color: "#1b6e1b" },
   ];
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <Text style={styles.title}>Ustawienia Konta</Text>
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: theme.text }]}>Ustawienia</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Kolor główny aplikacji</Text>
-
-        {/* Kontener na paletę kolorów */}
-        <View style={styles.colorGrid}>
-          {colorPalette.map((item) => (
-            <TouchableOpacity
-              key={item.color}
-              style={[
-                styles.colorCircle,
-                { backgroundColor: item.color },
-                primaryColor === item.color && {
-                  borderWidth: 3,
-                  borderColor: "#00000033",
-                },
-              ]}
-              onPress={() => setPrimaryColor(item.color)}
-            >
-              {primaryColor === item.color && (
-                <Ionicons name="checkmark" size={20} color="white" />
-              )}
-            </TouchableOpacity>
-          ))}
+        <View style={[styles.section, { backgroundColor: theme.card }]}>
+          <Text style={[styles.sectionLabel, { color: theme.text }]}>
+            Kolor motywu
+          </Text>
+          <View style={styles.colorGrid}>
+            {colorPalette.map((item) => (
+              <TouchableOpacity
+                key={item.color}
+                style={[styles.colorCircle, { backgroundColor: item.color }]}
+                onPress={() => setPrimaryColor(item.color)}
+              >
+                {primaryColor === item.color && (
+                  <Ionicons name="checkmark" size={24} color="white" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        <Text style={[styles.previewText, { color: primaryColor }]}>
-          Tak będzie wyglądać Twój kolor przewodniczy
-        </Text>
+        <TouchableOpacity
+          style={[styles.saveButton, { backgroundColor: primaryColor }]}
+          onPress={onBack}
+        >
+          <Text style={styles.saveButtonText}>Wróć do profilu</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Przykładowy przycisk z wybranym kolorem */}
-      <TouchableOpacity
-        style={[styles.saveButton, { backgroundColor: primaryColor }]}
-      >
-        <Text
-          style={styles.saveButtonText}
-          onPress={() => {
-            Alert.alert("Ustawienia", "Zmiany zostały zapisane pomyślnie!", [
-              { text: "OK", onPress: () => onBack() },
-            ]);
-          }}
+      {/* Przycisk wyloguj na dole */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[
+            styles.logoutItem,
+            { backgroundColor: theme.card, borderColor: primaryColor },
+          ]}
+          onPress={logout}
         >
-          Zapisz ustawienia
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Ionicons name="arrow-back" size={24} color={primaryColor} />
-        <Text style={[styles.backText, { color: primaryColor }]}>
-          Wróć do profilu
-        </Text>
-      </TouchableOpacity>
+          <Ionicons name="log-out-outline" size={22} color={primaryColor} />
+          <Text style={[styles.logoutText, { color: primaryColor }]}>
+            Wyloguj się z konta
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -94,70 +88,74 @@ const UserSettingsComponent: React.FC<UserSettingsProps> = ({ onBack }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
     paddingTop: 60,
-    backgroundColor: "#fff",
   },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  backText: {
-    marginLeft: 10,
-    fontSize: 16,
-    fontWeight: "600",
+  content: {
+    flex: 1,
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 30,
+    fontWeight: "800",
+    textAlign: "left",
+    marginBottom: 25,
   },
   section: {
-    marginTop: 10,
-    padding: 15,
-    backgroundColor: "#f8f8f8",
-    borderRadius: 15,
+    padding: 20,
+    borderRadius: 25,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
   sectionLabel: {
     fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 15,
-    color: "#333",
+    fontWeight: "700",
+    marginBottom: 20,
   },
   colorGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
+    justifyContent: "space-between",
     gap: 12,
-    marginBottom: 15,
   },
   colorCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  previewText: {
-    fontSize: 14,
-    fontStyle: "italic",
-    textAlign: "center",
+    marginBottom: 5,
   },
   saveButton: {
-    marginTop: 40,
-    padding: 18,
-    borderRadius: 15,
+    height: 60,
+    borderRadius: 20,
+    justifyContent: "center",
     alignItems: "center",
+    marginTop: 10,
   },
   saveButtonText: {
     color: "white",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "bold",
+  },
+  footer: {
+    paddingBottom: 40,
+  },
+  logoutItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  logoutText: {
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
 

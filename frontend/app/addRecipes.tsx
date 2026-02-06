@@ -21,8 +21,7 @@ import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 import { DISHES, CUISINES, DIET_TYPES, UNITS } from "@/constants/Filters";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-
-
+import { useThemeStore } from "@/store/useThemeStore";
 
 export default function AddRecipesScreen() {
   const router = useRouter();
@@ -51,13 +50,14 @@ export default function AddRecipesScreen() {
   const { token } = useAuthStore((state) => state);
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+  const { primaryColor } = useThemeStore();
 
   // Helper do renderowania ikon
   const renderIcon = (item: any, isSelected: boolean) => {
     const color = isSelected
       ? "#fff"
       : item.type === "mat" && item.icon.includes("flag")
-        ? "#FF5252"
+        ? primaryColor
         : theme.text;
 
     if (item.type === "mat") {
@@ -232,10 +232,10 @@ export default function AddRecipesScreen() {
               onPress={pickImage}
               style={[
                 styles.imagePicker,
-                { backgroundColor: theme.inputBg, borderColor: theme.tint },
+                { backgroundColor: theme.inputBg, borderColor: primaryColor },
               ]}
             >
-              <Text style={{ color: theme.tint, fontWeight: "bold" }}>
+              <Text style={[{ fontWeight: "bold" }, { color: primaryColor }]}>
                 + Dodaj zdjęcie
               </Text>
             </TouchableOpacity>
@@ -433,8 +433,8 @@ export default function AddRecipesScreen() {
                         backgroundColor: theme.inputBg,
                       },
                       isSel && {
-                        backgroundColor: theme.tint,
-                        borderColor: theme.tint,
+                        backgroundColor: primaryColor,
+                        borderColor: primaryColor,
                       },
                     ]}
                   >
@@ -494,8 +494,8 @@ export default function AddRecipesScreen() {
                         backgroundColor: theme.inputBg,
                       },
                       isSel && {
-                        backgroundColor: theme.tint,
-                        borderColor: theme.tint,
+                        backgroundColor: primaryColor,
+                        borderColor: primaryColor,
                       },
                     ]}
                   >
@@ -554,8 +554,8 @@ export default function AddRecipesScreen() {
                         backgroundColor: theme.inputBg,
                       },
                       isSel && {
-                        backgroundColor: theme.tint,
-                        borderColor: theme.tint,
+                        backgroundColor: primaryColor,
+                        borderColor: primaryColor,
                       },
                     ]}
                   >
@@ -579,7 +579,7 @@ export default function AddRecipesScreen() {
         <TouchableOpacity
           style={[
             styles.button,
-            { backgroundColor: theme.tint },
+            { backgroundColor: primaryColor },
             mutation.isPending && { backgroundColor: theme.subText },
           ]}
           onPress={handleAddRecipe}
