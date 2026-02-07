@@ -283,7 +283,7 @@ router.post(
       });
 
       res.status(201).json({
-        message: "Recipe created successfully",
+        message: "Przepis został utworzony",
         recipe: savedRecipe,
       });
     } catch (error: any) {
@@ -303,7 +303,7 @@ router.post(
       const { recipeId } = req.body;
 
       if (!recipeId) {
-        return res.status(400).json({ message: "Recipe ID is required" });
+        return res.status(400).json({ message: "Brak id przepisu" });
       }
 
       const user = await UserModel.findByIdAndUpdate(
@@ -313,7 +313,7 @@ router.post(
       );
 
       res.status(200).json({
-        message: "Recipe liked successfully",
+        message: "Przepis polubiony",
         likedRecipes: user?.recipes_liked,
       });
     } catch (error: any) {
@@ -335,16 +335,14 @@ router.put(
       const recipe = await Recipe.findById(recipeId);
 
       if (!recipe) {
-        return res.status(404).json({ message: "Recipe not found" });
+        return res.status(404).json({ message: "Nie można znaleźć przepisu" });
       }
 
       if (
         recipe.status !== "private" ||
         recipe.author.toString() !== req.userId
       ) {
-        return res
-          .status(403)
-          .json({ message: "You can not edit this recipe" });
+        return res.status(403).json({ message: "Nie masz uprawnień" });
       }
 
       let updateData = { ...req.body };
@@ -375,7 +373,7 @@ router.put(
       );
 
       res.status(200).json({
-        message: "Recipe updated successfully",
+        message: "Przepis został poprawiony",
         recipe: updatedRecipe,
       });
     } catch (error: any) {
@@ -392,25 +390,25 @@ router.patch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.userId) {
-        return next({ status: 401, message: "User not authenticated" });
+        return next({ status: 401, message: "Błąd autoryzacji" });
       }
 
       const recipe = await Recipe.findById(req.params.id);
 
       if (!recipe) {
-        return next({ status: 404, message: "Recipe not found" });
+        return next({ status: 404, message: "Nie można znaleźć przepisu" });
       }
 
       if (recipe.author.toString() !== req.userId) {
         return next({
           status: 403,
-          message: "Not authorized to submit this recipe",
+          message: "Nie masz uprawnień",
         });
       }
 
       recipe.status = "pending";
       await recipe.save();
-      res.status(200).json({ message: "Recipe submitted for verification" });
+      res.status(200).json({ message: "Przepis wysłany do weryfikacji" });
     } catch (error) {
       next(error);
     }
@@ -427,7 +425,8 @@ router.patch(
       const { value } = req.body;
       const recipe = await Recipe.findById(req.params.id);
 
-      if (!recipe) return next({ status: 404, message: "Recipe not found" });
+      if (!recipe)
+        return next({ status: 404, message: "Nie można znaleźć przepisu" });
       if (recipe.author.toString() === req.userId) {
         return next({
           status: 403,
@@ -467,7 +466,8 @@ router.patch(
         return next({ status: 400, message: "Komentarz jest za krótki" });
 
       const recipe = await Recipe.findById(req.params.id);
-      if (!recipe) return next({ status: 404, message: "Recipe not found" });
+      if (!recipe)
+        return next({ status: 404, message: "Nie można znaleźć przepisu" });
 
       recipe.comments?.push({
         text,
@@ -521,7 +521,7 @@ router.patch(
         user !== process.env.ADMIN_USER ||
         pass !== process.env.ADMIN_PASSWORD
       ) {
-        return res.status(401).json({ message: "Błąd autoryzacji" });
+        return res.status(401).json({ message: "Błąd autoryzacji admina" });
       }
 
       const updated = await Recipe.findByIdAndUpdate(
@@ -598,12 +598,22 @@ router.delete(
         });
       }
 
+      if (recipe.imageUrl) {
+        try {
+          const urlParts = recipe.imageUrl.split("/");
+          const key = `${urlParts[urlParts.length - 2]}/${urlParts[urlParts.length - 1]}`;
+          await deleteFileFromS3(key);
+        } catch (err) {
+          console.error("Błąd S3 podczas kawania przepisu:", err);
+        }
+      }
+
       await Recipe.findByIdAndDelete(req.params.id);
 
       await UserModel.findByIdAndUpdate(req.userId, {
         $pull: { recipes_added: req.params.id },
       });
-      res.status(200).json({ message: "Recipe deleted successfully" });
+      res.status(200).json({ message: "Przepis usuniety" });
     } catch (error) {
       next(error);
     }
