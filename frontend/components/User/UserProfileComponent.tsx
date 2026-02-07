@@ -17,6 +17,7 @@ import { api } from "../../api/client";
 import { useAuthStore } from "@/store/useAuthStore";
 import Colors from "@/constants/Colors";
 import UserSettingsComponent from "./UserSettingsComponent";
+import { useThemeStore } from "@/store/useThemeStore";
 
 const CALENDAR_STORAGE_KEY = "user_calendar_data";
 const SHOPPING_LIST_KEY = "shopping_list_data";
@@ -31,6 +32,7 @@ const UserProfileComponent = () => {
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const isDark = colorScheme === "dark";
+  const { primaryColor } = useThemeStore();
 
   const loadLocalStorageData = useCallback(async () => {
     try {
@@ -104,19 +106,14 @@ const UserProfileComponent = () => {
       icon: "lock-closed-outline",
     },
     {
-      label: "Publiczne przepisy",
-      value: userData?.recipes_uploaded?.length || 0,
-      icon: "cloud-upload-outline",
-    },
-    {
-      label: "Polubione przepisy",
-      value: userData?.recipes_liked?.length || 0,
-      icon: "heart-outline",
-    },
-    {
       label: "Przepisy w planie",
       value: localCalendarCount,
       icon: "calendar-outline",
+    },
+    {
+      label: "Publiczne przepisy",
+      value: userData?.recipes_uploaded?.length || 0,
+      icon: "cloud-upload-outline",
     },
     {
       label: "Rzeczy do kupienia",
@@ -124,9 +121,9 @@ const UserProfileComponent = () => {
       icon: "cart-outline",
     },
     {
-      label: "Znajomi",
-      value: userData?.friends?.length || 0,
-      icon: "people-outline",
+      label: "Polubione przepisy",
+      value: userData?.recipes_liked?.length || 0,
+      icon: "heart-outline",
     },
   ];
 
@@ -166,7 +163,7 @@ const UserProfileComponent = () => {
         {/* Statystyki w Gridzie */}
         {isLoading ? (
           <ActivityIndicator
-            color="#FF6347"
+            color={primaryColor}
             size="large"
             style={{ marginVertical: 20 }}
           />
@@ -177,7 +174,11 @@ const UserProfileComponent = () => {
                 key={index}
                 style={[styles.statBox, { backgroundColor: theme.card }]}
               >
-                <Ionicons name={stat.icon as any} size={18} color="#FF6347" />
+                <Ionicons
+                  name={stat.icon as any}
+                  size={25}
+                  color={primaryColor}
+                />
                 <Text style={[styles.statValue, { color: theme.text }]}>
                   {stat.value}
                 </Text>
@@ -207,19 +208,7 @@ const UserProfileComponent = () => {
           </TouchableOpacity>
         </View>
 
-        <View
-          style={[
-            styles.menuContainer,
-            { backgroundColor: theme.card, marginTop: 20 },
-          ]}
-        >
-          <TouchableOpacity style={styles.menuItem} onPress={logout}>
-            <Ionicons name="log-out-outline" size={22} color="#FF6347" />
-            <Text style={[styles.menuText, { color: "#FF6347" }]}>
-              Wyloguj się
-            </Text>
-          </TouchableOpacity>
-        </View>
+        
       </ScrollView>
     </SafeAreaView>
   );

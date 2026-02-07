@@ -19,101 +19,19 @@ import { api } from "@/api/client";
 import Colors from "@/constants/Colors";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useRouter } from "expo-router";
-
-// --- MAPOWANIE DANYCH (Zachowane bez zmian) ---
-const DISHES = [
-  { label: "Szybkie", value: "szybkie", icon: "flash-outline", type: "ion" },
-  {
-    label: "Śniadanie",
-    value: "śniadanie",
-    icon: "sunny-outline",
-    type: "ion",
-  },
-  {
-    label: "Przekąska",
-    value: "przekąska",
-    icon: "fast-food-outline",
-    type: "ion",
-  },
-  { label: "Zupa", value: "zupa", icon: "water-outline", type: "ion" },
-  { label: "Sałatka", value: "sałatka", icon: "leaf-outline", type: "ion" },
-  { label: "Obiad", value: "obiad", icon: "restaurant-outline", type: "ion" },
-  {
-    label: "Danie jednogarnkowe",
-    value: "danie jednogarnkowe",
-    icon: "pot-steam-outline",
-    type: "mat",
-  },
-  { label: "Makaron", value: "makaron", icon: "bowl-mix-outline", type: "mat" },
-  {
-    label: "Lunchbox",
-    value: "lunchbox",
-    icon: "briefcase-outline",
-    type: "ion",
-  },
-  { label: "Deser", value: "deser", icon: "ice-cream-outline", type: "ion" },
-  { label: "Kolacja", value: "kolacja", icon: "moon-outline", type: "ion" },
-  { label: "Napój", value: "napój", icon: "cafe-outline", type: "ion" },
-  { label: "Drink", value: "drink", icon: "wine-outline", type: "ion" },
-  {
-    label: "Pieczywo",
-    value: "pieczywo",
-    icon: "bread-slice-outline",
-    type: "mat",
-  },
-  {
-    label: "Przetwory",
-    value: "przetwory",
-    icon: "archive-outline",
-    type: "ion",
-  },
-  { label: "Sos", value: "sos", icon: "color-fill-outline", type: "ion" },
-];
-
-const CUISINES = [
-  { label: "Polska", flag: "🇵🇱" },
-  { label: "Włoska", flag: "🇮🇹" },
-  { label: "Turecka", flag: "🇹🇷" },
-  { label: "Amerykańska", flag: "🇺🇸" },
-  { label: "Chińska", flag: "🇨🇳" },
-  { label: "Meksykańska", flag: "🇲🇽" },
-  { label: "Hiszpańska", flag: "🇪🇸" },
-  { label: "Indyjska", flag: "🇮🇳" },
-  { label: "Ukraińska", flag: "🇺🇦" },
-  { label: "Japońska", flag: "🇯🇵" },
-  { label: "Grecka", flag: "🇬🇷" },
-  { label: "Tajska", flag: "🇹🇭" },
-  { label: "Wietnamska", flag: "🇻🇳" },
-  { label: "Francuska", flag: "🇫🇷" },
-  { label: "Gruzińska", flag: "🇬🇪" },
-  { label: "Skandynawska", flag: "🇸🇪" },
-  { label: "Pakistańska", flag: "🇵🇰" },
-  { label: "Arabska", flag: "🇸🇦" },
-  { label: "Żydowska", flag: "🇮🇱" },
-  { label: "Inna", flag: "🌏" },
-];
-
-const DIET_TYPES = [
-  { label: "Wegetariańska", icon: "leaf-outline", type: "ion" },
-  { label: "Wegańska", icon: "heart-outline", type: "ion" },
-  { label: "Bezglutenowa", icon: "barley-off", type: "mat" },
-  { label: "Keto", icon: "fire", type: "mat" },
-  { label: "Low Carb", icon: "speedometer-slow", type: "mat" },
-  { label: "Białkowa", icon: "arm-flex-outline", type: "mat" },
-  { label: "Bez laktozy", icon: "cup-off-outline", type: "mat" },
-  { label: "Paleo", icon: "bone", type: "mat" },
-  { label: "Niski IG", icon: "trending-down", type: "mat" },
-];
+import { DISHES, CUISINES, DIET_TYPES } from "@/constants/Filters";
+import { useThemeStore } from "@/store/useThemeStore";
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const queryClient = useQueryClient();
+  const { primaryColor } = useThemeStore();
 
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
@@ -121,6 +39,16 @@ export default function RecipeDetailScreen() {
       const response = await api.get(`/recipes/${id}`);
       return response.data;
     },
+  });
+
+  const {
+    data: userFull,
+    isLoading: loadingUser,
+    refetch: refetchUSer,
+  } = useQuery({
+    queryKey: ["me"],
+    queryFn: async () => (await api.get("/auth/me")).data,
+    enabled: !!token,
   });
 
   const publishMutation = useMutation({
@@ -153,6 +81,7 @@ export default function RecipeDetailScreen() {
   const isOwner = recipe?.author?._id === user?.id;
   const isPublic = recipe?.status === "public";
   const isPrivate = recipe?.status === "private";
+  const isLiked = userFull?.recipes_liked?.includes(id as string);
 
   const getRatingData = () => {
     const notes = recipe?.note || [];
@@ -177,7 +106,6 @@ export default function RecipeDetailScreen() {
       );
     });
 
-    // Kolor ikon w tagach: dla diet zielony, dla reszty subText z Twojego obiektu
     const iconColor = category === "diet" ? "#4CAF50" : theme.subText;
 
     if (!item)
@@ -236,7 +164,10 @@ export default function RecipeDetailScreen() {
             <View style={styles.badgeRow}>
               {recipe.cuisine && (
                 <View
-                  style={[styles.cuisineBadge, { backgroundColor: theme.tint }]}
+                  style={[
+                    styles.cuisineBadge,
+                    { backgroundColor: primaryColor },
+                  ]}
                 >
                   <Text style={{ fontSize: 14 }}>{cuisineInfo?.flag} </Text>
                   <Text style={styles.cuisineBadgeText}>{recipe.cuisine}</Text>
@@ -267,6 +198,13 @@ export default function RecipeDetailScreen() {
             <Text style={[styles.title, { color: theme.text }]}>
               {recipe.title}
             </Text>
+            <View style={styles.ratingRow}>
+              <Ionicons name="person-outline" size={14} color={theme.subText} />
+              <Text style={[styles.authorText, { color: theme.subText }]}>
+                Autor: {recipe.author?.name || "Anonim"}
+              </Text>
+            </View>
+
             {isPublic && (
               <View style={styles.ratingRow}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -345,7 +283,7 @@ export default function RecipeDetailScreen() {
               <Ionicons
                 name="restaurant-outline"
                 size={20}
-                color={theme.tint}
+                color={primaryColor}
               />
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 Składniki
@@ -366,7 +304,7 @@ export default function RecipeDetailScreen() {
                   <Text style={[styles.ingredientText, { color: theme.text }]}>
                     {item.name}
                   </Text>
-                  <Text style={[styles.amountText, { color: theme.tint }]}>
+                  <Text style={[styles.amountText, { color: primaryColor }]}>
                     {item.amount} {item.unit}
                   </Text>
                 </View>
@@ -377,7 +315,7 @@ export default function RecipeDetailScreen() {
           {/* SEKCJA PRZYGOTOWANIE */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Ionicons name="list-outline" size={20} color={theme.tint} />
+              <Ionicons name="list-outline" size={20} color={primaryColor} />
               <Text style={[styles.sectionTitle, { color: theme.text }]}>
                 Przygotowanie
               </Text>
@@ -392,14 +330,17 @@ export default function RecipeDetailScreen() {
           {/* KOMENTARZE */}
           {isPublic && (
             <View style={styles.section}>
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: theme.text, marginBottom: 10 },
-                ]}
-              >
-                Komentarze
-              </Text>
+              <View style={styles.sectionHeader}>
+                <Ionicons
+                  name="restaurant-outline"
+                  size={20}
+                  color={primaryColor}
+                />
+
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Komentarze
+                </Text>
+              </View>
               <Text style={{ color: theme.subText, fontStyle: "italic" }}>
                 {isOwner
                   ? "Nie możesz dodać komentarza do swojego przepisu"
@@ -421,14 +362,30 @@ export default function RecipeDetailScreen() {
               style={[
                 styles.likeBadge,
                 {
-                  backgroundColor:
-                    colorScheme === "dark" ? "#2A1815" : "#FFF0F0",
+                  backgroundColor: isLiked
+                    ? colorScheme === "dark"
+                      ? "#441a1a"
+                      : "#FFE5E5"
+                    : colorScheme === "dark"
+                      ? "#2A1815"
+                      : "#FFF0F0",
                 },
               ]}
             >
-              <Ionicons name="heart" size={24} color={theme.tint} />
+              <Ionicons
+                name={isLiked ? "heart" : "heart-outline"}
+                size={24}
+                color={isLiked ? "#FF6347" : theme.tint}
+              />
             </View>
-            <Text style={[styles.likeText, { color: theme.text }]}>Polub</Text>
+            <Text
+              style={[
+                styles.likeText,
+                { color: isLiked ? "#FF6347" : theme.text },
+              ]}
+            >
+              {isLiked ? "Polubiono" : "Polub"}
+            </Text>
           </TouchableOpacity>
         )}
 
@@ -547,7 +504,7 @@ const styles = StyleSheet.create({
   ingredientRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 14,
+    paddingVertical: 6,
   },
   ingredientText: { fontSize: 16, fontWeight: "500" },
   amountText: { fontSize: 16, fontWeight: "bold" },
@@ -589,4 +546,10 @@ const styles = StyleSheet.create({
   },
   fabSecondary: { borderWidth: 1.5 },
   fabText: { fontWeight: "700", fontSize: 14 },
+  authorText: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginLeft: 4,
+    marginBottom: 6,
+  },
 });

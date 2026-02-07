@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Colors from "@/constants/Colors";
 import { LinearGradient } from "expo-linear-gradient";
 import { DISHES, CUISINES, DIET_TYPES } from "@/constants/Filters";
+import { useThemeStore } from "@/store/useThemeStore";
 
 // Włączenie animacji dla Androida
 if (
@@ -31,7 +32,7 @@ if (
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-type SortOption = "najnowsze" | "najlepsze" | "a-z";
+type SortOption = "najnowsze" | "najpopularniejsze" | "a-z" | "z-a";
 
 export default function PublicRecipesScreen() {
   const [search, setSearch] = useState("");
@@ -40,10 +41,13 @@ export default function PublicRecipesScreen() {
   const [selectedDiets, setSelectedDiets] = useState<string[]>([]);
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const activeFiltersCount =
+    selectedDishes.length + selectedDiets.length + selectedCuisines.length;
 
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+  const { primaryColor } = useThemeStore();
 
   const {
     data: publicRecipes,
@@ -70,14 +74,6 @@ export default function PublicRecipesScreen() {
   ) => {
     setFn((prev) =>
       prev.includes(value) ? prev.filter((i) => i !== value) : [...prev, value],
-    );
-  };
-
-  const toggleCuisine = (cuisine: string) => {
-    setSelectedCuisines((prev) =>
-      prev.includes(cuisine)
-        ? prev.filter((c) => c !== cuisine)
-        : [...prev, cuisine],
     );
   };
 
@@ -115,12 +111,13 @@ export default function PublicRecipesScreen() {
     // Sortowanie
     return [...list].sort((a: any, b: any) => {
       if (sortBy === "a-z") return a.title.localeCompare(b.title);
+      if (sortBy === "z-a") return b.title.localeCompare(a.title);
       if (sortBy === "najnowsze")
         return (
           new Date(b.createdAt || 0).getTime() -
           new Date(a.createdAt || 0).getTime()
         );
-      if (sortBy === "najlepsze") {
+      if (sortBy === "najpopularniejsze") {
         const getAvg = (n: number[]) =>
           n?.length ? n.reduce((acc, v) => acc + v, 0) / n.length : 0;
         return getAvg(b.note) - getAvg(a.note);
@@ -147,7 +144,10 @@ export default function PublicRecipesScreen() {
     onPress: () => void;
   }) => (
     <TouchableOpacity
-      style={[styles.chip, active && styles.activeChip]}
+      style={[
+        styles.chip,
+        active && [styles.activeChip, { backgroundColor: primaryColor }],
+      ]}
       onPress={onPress}
     >
       <Text style={[styles.chipText, active && styles.activeChipText]}>
@@ -176,27 +176,66 @@ export default function PublicRecipesScreen() {
           style={styles.recipeCard}
           imageStyle={styles.cardImage}
         >
+          {/* OCENA W LEWYM GÓRNYM ROGU */}
           <View style={styles.topRow}>
             <View style={styles.ratingBadge}>
               <Ionicons name="star" size={12} color="#FFD700" />
               <Text style={styles.ratingText}>{avgNote}</Text>
             </View>
           </View>
+
           <LinearGradient
-            colors={["transparent", "rgba(0,0,0,0.9)"]}
+            colors={["transparent", "rgba(0,0,0,0.85)"]}
             style={styles.gradient}
           >
-            <View style={styles.cardContent}>
-              <Text style={styles.recipeTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <View style={styles.metaRow}>
-                <Text style={styles.authorText}>
-                  {item.author?.name || "Anonim"}
+            {/* TYTUŁ */}
+            <Text style={styles.recipeTitle} numberOfLines={1}>
+              {item.title}
+            </Text>
+
+            {/* RZĄD BADGY POD TYTUŁEM */}
+            <View style={styles.badgeContainer}>
+              {/* BADGE KUCHNI */}
+              <View
+                style={[styles.cuisineBadge, { backgroundColor: primaryColor }]}
+              >
+                <Text style={{ fontSize: 10 }}>
+                  {CUISINES.find((c) => c.label === item.cuisine)?.flag}
                 </Text>
-                <Text style={styles.dot}>•</Text>
-                <Text style={styles.cuisineText}>{item.cuisine || "Inna"}</Text>
+                <Text style={styles.cuisineBadgeText}>
+                  {item.cuisine || "Inna"}
+                </Text>
               </View>
+
+              {/* TYPY DAŃ (z mapowania, ograniczone do 2 dla czytelności) */}
+              {item.dish_type?.slice(0, 2).map((d: any, index: number) => (
+                <View
+                  key={`dish-${index}`}
+                  style={[
+                    styles.cuisineBadge,
+                    { backgroundColor: "rgba(232, 245, 233, 0.3)" },
+                  ]}
+                >
+                  <Text style={styles.cuisineBadgeText}>
+                    {typeof d === "string" ? d : d.name}
+                  </Text>
+                </View>
+              ))}
+
+              {/* OPCJONALNIE: TYPY DIETY (jeśli jest miejsce) */}
+              {item.diet_type?.slice(0, 1).map((d: any, index: number) => (
+                <View
+                  key={`diet-${index}`}
+                  style={[
+                    styles.cuisineBadge,
+                    { backgroundColor: "rgba(76, 175, 79, 0.35)" },
+                  ]}
+                >
+                  <Text style={styles.cuisineBadgeText}>
+                    {typeof d === "string" ? d : d.name}
+                  </Text>
+                </View>
+              ))}
             </View>
           </LinearGradient>
         </ImageBackground>
@@ -222,14 +261,25 @@ export default function PublicRecipesScreen() {
           />
         </View>
         <TouchableOpacity
-          style={[styles.menuToggle, isMenuOpen && styles.activeToggle]}
+          style={[
+            [styles.menuToggle, { borderColor: primaryColor }],
+            isMenuOpen && [
+              styles.activeToggle,
+              { backgroundColor: primaryColor },
+            ],
+          ]}
           onPress={toggleMenu}
         >
           <Ionicons
             name={isMenuOpen ? "close" : "options-outline"}
             size={24}
-            color={isMenuOpen ? "#fff" : "#FF6347"}
+            color={isMenuOpen ? "#fff" : primaryColor}
           />
+          {activeFiltersCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: primaryColor }]}>
+              <Text style={styles.badgeText}>{activeFiltersCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -237,7 +287,7 @@ export default function PublicRecipesScreen() {
       {isMenuOpen && (
         <View style={[styles.filterMenu, { backgroundColor: theme.card }]}>
           <ScrollView
-            style={{ maxHeight: 450 }} // Ograniczamy wysokość, żeby nie zasłonić całej listy
+            style={{ maxHeight: 450 }}
             showsVerticalScrollIndicator={true}
             contentContainerStyle={{ paddingBottom: 20 }}
           >
@@ -268,7 +318,10 @@ export default function PublicRecipesScreen() {
                   key={dish.value}
                   style={[
                     styles.chip,
-                    selectedDishes.includes(dish.value) && styles.activeChip,
+                    selectedDishes.includes(dish.value) && [
+                      styles.activeChip,
+                      { backgroundColor: primaryColor },
+                    ],
                     styles.chipWithIcon,
                   ]}
                   onPress={() => toggleFilter(setSelectedDishes, dish.value)}
@@ -279,7 +332,9 @@ export default function PublicRecipesScreen() {
                       size={18}
                       style={{ textAlign: "center" }}
                       color={
-                        selectedDishes.includes(dish.label) ? "#FF6347" : "#666"
+                        selectedDishes.includes(dish.label)
+                          ? primaryColor
+                          : "#666"
                       }
                     />
                   ) : (
@@ -288,7 +343,9 @@ export default function PublicRecipesScreen() {
                       size={18}
                       style={{ textAlign: "center" }}
                       color={
-                        selectedDishes.includes(dish.label) ? "#FF6347" : "#666"
+                        selectedDishes.includes(dish.label)
+                          ? primaryColor
+                          : "#666"
                       }
                     />
                   )}
@@ -315,7 +372,10 @@ export default function PublicRecipesScreen() {
                   key={diet.label}
                   style={[
                     styles.chip,
-                    selectedDiets.includes(diet.label) && styles.activeChip,
+                    selectedDiets.includes(diet.label) && [
+                      styles.activeChip,
+                      { backgroundColor: primaryColor },
+                    ],
                     styles.chipWithIcon,
                   ]}
                   onPress={() => toggleFilter(setSelectedDiets, diet.label)}
@@ -326,7 +386,9 @@ export default function PublicRecipesScreen() {
                       size={18}
                       style={{ textAlign: "center" }}
                       color={
-                        selectedDishes.includes(diet.label) ? "#FF6347" : "#666"
+                        selectedDishes.includes(diet.label)
+                          ? primaryColor
+                          : "#666"
                       }
                     />
                   ) : (
@@ -335,7 +397,9 @@ export default function PublicRecipesScreen() {
                       size={18}
                       style={{ textAlign: "center" }}
                       color={
-                        selectedDishes.includes(diet.label) ? "#FF6347" : "#666"
+                        selectedDishes.includes(diet.label)
+                          ? primaryColor
+                          : "#666"
                       }
                     />
                   )}
@@ -377,10 +441,16 @@ export default function PublicRecipesScreen() {
                   setSelectedDiets([]);
                   setSelectedCuisines([]);
                 }}
-                style={styles.resetButton}
+                style={[styles.resetButton, { borderColor: primaryColor }]}
               >
-                <Ionicons name="refresh-circle" size={20} color="#FF6347" />
-                <Text style={styles.resetText}>Wyczyść wszystkie filtry</Text>
+                <Ionicons
+                  name="refresh-circle"
+                  size={20}
+                  color={primaryColor}
+                />
+                <Text style={[styles.resetText, { color: primaryColor }]}>
+                  Wyczyść wszystkie filtry
+                </Text>
               </TouchableOpacity>
             )}
           </ScrollView>
@@ -457,7 +527,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     opacity: 0.6,
   },
-  chipGroup: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chipGroup: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -469,26 +543,70 @@ const styles = StyleSheet.create({
   activeChipText: { color: "#fff", fontWeight: "bold" },
   listPadding: { paddingHorizontal: 20, paddingBottom: 100 },
   recipeCard: {
-    height: 220,
-    borderRadius: 25,
-    marginBottom: 20,
+    height: 180,
+    borderRadius: 20,
+    marginBottom: 15,
     overflow: "hidden",
-    elevation: 5,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  cardImage: { borderRadius: 25 },
-  gradient: { flex: 1, justifyContent: "flex-end", padding: 16 },
-  topRow: { position: "absolute", top: 12, right: 12 },
+  cardImage: {
+    borderRadius: 20,
+  },
+  topRow: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 2,
+  },
   ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.75)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: 10,
     gap: 4,
   },
-  ratingText: { color: "#fff", fontWeight: "bold", fontSize: 13 },
-  recipeTitle: { fontSize: 22, fontWeight: "bold", color: "#fff" },
+  ratingText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+  gradient: {
+    flex: 1,
+    justifyContent: "flex-end",
+    padding: 15,
+  },
+  recipeTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 8,
+  },
+  badgeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  cuisineBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  cuisineBadgeText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 9,
+    textTransform: "uppercase",
+  },
   metaRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   authorText: { color: "#ccc", fontSize: 13 },
   cuisineText: { color: "#FF6347", fontSize: 13, fontWeight: "bold" },
@@ -517,5 +635,24 @@ const styles = StyleSheet.create({
     color: "#FF6347",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  badge: {
+    position: "absolute",
+    right: 32,
+    bottom: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "white",
+    paddingHorizontal: 2,
+    zIndex: 1,
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
   },
 });

@@ -7,7 +7,8 @@ import {
 import Recipe, { RecipeValidationSchema } from "../models/RecipeModel.js";
 import { checkToken } from "../middleware/checkToken.js";
 import UserModel from "../models/UserModel.js";
-import { uploadRecipe } from "../utilities/s3.js";
+import { uploadRecipe, deleteFileFromS3 } from "../utilities/s3.js";
+import { Types } from "mongoose";
 
 const router = Router();
 
@@ -111,90 +112,92 @@ router.get(
         return res.status(401).send("<h1>Błąd autoryzacji</h1>");
       }
 
-      // Pobieramy przepisy z statusem pending i danymi autora
-      const pending = await Recipe.find({ status: "pending" })
+      const pendingRecipes = await Recipe.find({ status: "pending" })
         .populate("author", "name email")
         .sort({ createdAt: -1 });
+
+      const recipesWithPendingComments = await Recipe.find({
+        "comments.verified": false,
+      }).populate("comments.author", "name");
 
       const html = `
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Panel Admina - Weryfikacja</title>
+            <title>Admin Dashboard</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-              body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f4f7f6; color: #333; }
-              .container { max-width: 1000px; margin: 0 auto; }
-              .card { background: white; padding: 20px; border-radius: 16px; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e5e7eb; }
-              .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
-              .title-area { flex: 1; }
-              .title { font-size: 1.6rem; font-weight: 800; color: #1a1a1a; margin-bottom: 5px; }
-              .meta { font-size: 0.85rem; color: #6b7280; }
-              .content { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-top: 15px; }
-              .image-preview img { width: 100%; border-radius: 12px; object-fit: cover; aspect-ratio: 16/9; background: #eee; }
-              .list-section { background: #f9fafb; padding: 15px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #f3f4f6; }
-              .tag { display: inline-block; background: #fee2e2; color: #ef4444; padding: 2px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; margin-right: 5px; }
-              .diet-tag { background: #dcfce7; color: #16a34a; }
-              .btn-group { display: flex; gap: 10px; margin-top: 20px; }
-              .btn { flex: 1; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; border: none; transition: 0.2s; font-size: 0.95rem; }
-              .btn-save { background: #3b82f6; color: white; }
+              body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f0f2f5; color: #1a1a1a; }
+              .container { max-width: 1100px; margin: 0 auto; }
+              .section-title { margin: 40px 0 20px; padding-bottom: 10px; border-bottom: 3px solid #3b82f6; display: flex; align-items: center; justify-content: space-between; }
+              .card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+              .content { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+              .comment-row { background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #f59e0b; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+              .btn { padding: 8px 16px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; transition: 0.2s; }
               .btn-approve { background: #10b981; color: white; }
-              .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-              [contenteditable="true"] { border: 1px dashed #3b82f6; padding: 5px; border-radius: 4px; background: #fff; }
+              .btn-delete { background: #ef4444; color: white; margin-left: 5px; }
+              .btn-save { background: #3b82f6; color: white; }
+              [contenteditable="true"] { border: 1px dashed #3b82f6; background: #f9fafb; padding: 5px; border-radius: 4px; }
+              img { max-width: 100%; border-radius: 8px; }
             </style>
           </head>
           <body>
             <div class="container">
-              <header style="margin-bottom: 30px;">
-                <h1 style="margin:0;">Oczekujące Przepisy <span style="color: #ef4444;">(${pending.length})</span></h1>
-                <p style="color: #6b7280;">Tryb edycji: kliknij w tytuł lub instrukcję, aby poprawić przed publikacją.</p>
-              </header>
+              <h1>🚀 Panel Zarządzania</h1>
 
-              <div id="list">
-                ${pending
+              <div class="section-title">
+                <h2>Oczekujące Przepisy (${pendingRecipes.length})</h2>
+              </div>
+              
+              <div id="recipes-list">
+                ${pendingRecipes
                   .map(
-                    (r: any) => `
-                  <div class="card" id="card-${r._id}">
-                    <div class="header">
-                      <div class="title-area">
-                        <div class="title" id="title-${r._id}" contenteditable="true">${r.title}</div>
-                        <div class="meta">
-                          Autor: <strong>${r.author?.name || "Gość"}</strong> (${r.author?.email || "-"}) 
-                          | Kuchnia: <strong>${r.cuisine || "Brak"}</strong>
-                        </div>
-                        <div style="margin-top: 8px;">
-                          ${r.dish_type?.map((t: string) => `<span class="tag">${t}</span>`).join("")}
-                          ${r.diet_type?.map((t: string) => `<span class="tag diet-tag">${t}</span>`).join("")}
-                        </div>
-                      </div>
-                    </div>
-
+                    (r) => `
+                  <div class="card" id="recipe-${r._id}">
                     <div class="content">
-                      <div class="details">
-                        <div class="list-section">
-                          <strong style="display:block; margin-bottom: 5px; color: #374151;">Składniki:</strong>
-                          <div style="font-size: 0.95rem;">
-                            ${r.ingredients.map((i: any) => `• ${i.name}: <strong>${i.amount} ${i.unit}</strong>`).join("<br>")}
-                          </div>
-                        </div>
-
-                        <div class="list-section">
-                          <strong style="display:block; margin-bottom: 5px; color: #374151;">Instrukcja (Edytowalna):</strong>
-                          <div id="instr-${r._id}" contenteditable="true" style="white-space: pre-wrap; font-size: 0.95rem; min-height: 80px;">${r.instructions}</div>
-                        </div>
+                      <div>
+                        <h3 id="title-${r._id}" contenteditable="true">${r.title}</h3>
+                        <p style="font-size:0.9rem; color: #666;">Autor: ${(r.author as any)?.name || "Anonim"}</p>
+                        <div id="instr-${r._id}" contenteditable="true" style="white-space: pre-wrap; margin: 10px 0; font-size: 0.9rem;">${r.instructions}</div>
+                        <button class="btn btn-save" onclick="saveRecipe('${r._id}')">💾 Zapisz</button>
+                        <button class="btn btn-approve" onclick="approveRecipe('${r._id}')">✅ Publikuj</button>
                       </div>
-
-                      <div class="image-preview">
-                        ${r.imageUrl ? `<img src="${r.imageUrl}" alt="Foto">` : `<div style="height:150px; background:#eee; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#aaa;">Brak zdjęcia</div>`}
-                      </div>
-                    </div>
-
-                    <div class="btn-group">
-                      <button class="btn btn-save" onclick="saveChanges('${r._id}')">💾 Zapisz poprawki</button>
-                      <button class="btn btn-approve" onclick="approve('${r._id}')">✅ Zatwierdź i Opublikuj</button>
+                      <div>${r.imageUrl ? `<img src="${r.imageUrl}">` : "Brak zdjęcia"}</div>
                     </div>
                   </div>
                 `,
+                  )
+                  .join("")}
+              </div>
+
+              <div class="section-title">
+                <h2>Komentarze do Weryfikacji</h2>
+              </div>
+
+              <div id="comments-list">
+                ${recipesWithPendingComments
+                  .map((r) =>
+                    r.comments
+                      ?.filter((c) => !c.verified)
+                      .map((c) => {
+                        const commentId = (c as any)._id.toString();
+                        const authorName =
+                          (c.author as any)?.name || "Użytkownik";
+
+                        return `
+                         <div class="comment-row" id="comment-${commentId}">
+                           <div>
+                             <strong>${authorName}</strong> o "${r.title}"
+                             <div style="font-style: italic; color: #4b5563; margin-top: 5px;">"${c.text}"</div>
+                           </div>
+                           <div>
+                             <button class="btn btn-approve" onclick="verifyComment('${r._id}', '${commentId}')">Zatwierdź</button>
+                             <button class="btn btn-delete" onclick="deleteComment('${r._id}', '${commentId}')">Usuń</button>
+                           </div>
+                         </div>
+                       `;
+                      })
+                      .join(""),
                   )
                   .join("")}
               </div>
@@ -202,48 +205,37 @@ router.get(
 
             <script>
               const auth = 'user=${user}&pass=${pass}';
-
-              async function saveChanges(id) {
-                const title = document.getElementById('title-' + id).innerText.trim();
-                const instructions = document.getElementById('instr-' + id).innerText.trim();
-
-                try {
-                  const res = await fetch(\`/api/recipes/admin/quick-edit/\${id}?\${auth}\`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, instructions })
-                  });
-
-                  if(res.ok) alert('Zmiany zapisane pomyślnie!');
-                  else alert('Błąd zapisu danych.');
-                } catch(e) {
-                  alert('Błąd połączenia z API');
-                }
+              
+              async function saveRecipe(id) {
+                const title = document.getElementById('title-' + id).innerText;
+                const instructions = document.getElementById('instr-' + id).innerText;
+                const res = await fetch(\`/api/recipes/admin/quick-edit/\${id}?\${auth}\`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title, instructions })
+                });
+                if(res.ok) alert('Poprawki zapisane!');
               }
 
-              async function approve(id) {
-                if(!confirm('Opublikować przepis na stałe?')) return;
-                try {
-                  const res = await fetch(\`/api/recipes/admin/approve/\${id}?\${auth}\`, {
-                    method: 'PATCH'
-                  });
-                  if(res.ok) {
-                    const card = document.getElementById('card-' + id);
-                    card.style.opacity = '0';
-                    card.style.transform = 'scale(0.9)';
-                    setTimeout(() => card.remove(), 300);
-                  } else {
-                    alert('Błąd serwera podczas akceptacji');
-                  }
-                } catch(e) {
-                  alert('Błąd połączenia');
-                }
+              async function approveRecipe(id) {
+                const res = await fetch(\`/api/recipes/admin/approve/\${id}?\${auth}\`, { method: 'PATCH' });
+                if(res.ok) document.getElementById('recipe-' + id).remove();
+              }
+
+              async function verifyComment(recipeId, commentId) {
+                const res = await fetch(\`/api/recipes/admin/comment-approve/\${recipeId}/\${commentId}?\${auth}\`, { method: 'PATCH' });
+                if(res.ok) document.getElementById('comment-' + commentId).remove();
+              }
+
+              async function deleteComment(recipeId, commentId) {
+                if(!confirm('Usunąć ten komentarz na stałe?')) return;
+                const res = await fetch(\`/api/recipes/admin/comment-delete/\${recipeId}/\${commentId}?\${auth}\`, { method: 'DELETE' });
+                if(res.ok) document.getElementById('comment-' + commentId).remove();
               }
             </script>
           </body>
         </html>
       `;
-
       res.send(html);
     } catch (error) {
       next(error);
@@ -291,7 +283,7 @@ router.post(
       });
 
       res.status(201).json({
-        message: "Recipe created successfully",
+        message: "Przepis został utworzony",
         recipe: savedRecipe,
       });
     } catch (error: any) {
@@ -311,7 +303,7 @@ router.post(
       const { recipeId } = req.body;
 
       if (!recipeId) {
-        return res.status(400).json({ message: "Recipe ID is required" });
+        return res.status(400).json({ message: "Brak id przepisu" });
       }
 
       const user = await UserModel.findByIdAndUpdate(
@@ -321,7 +313,7 @@ router.post(
       );
 
       res.status(200).json({
-        message: "Recipe liked successfully",
+        message: "Przepis polubiony",
         likedRecipes: user?.recipes_liked,
       });
     } catch (error: any) {
@@ -343,16 +335,14 @@ router.put(
       const recipe = await Recipe.findById(recipeId);
 
       if (!recipe) {
-        return res.status(404).json({ message: "Recipe not found" });
+        return res.status(404).json({ message: "Nie można znaleźć przepisu" });
       }
 
       if (
         recipe.status !== "private" ||
         recipe.author.toString() !== req.userId
       ) {
-        return res
-          .status(403)
-          .json({ message: "You can not edit this recipe" });
+        return res.status(403).json({ message: "Nie masz uprawnień" });
       }
 
       let updateData = { ...req.body };
@@ -383,7 +373,7 @@ router.put(
       );
 
       res.status(200).json({
-        message: "Recipe updated successfully",
+        message: "Przepis został poprawiony",
         recipe: updatedRecipe,
       });
     } catch (error: any) {
@@ -392,7 +382,7 @@ router.put(
   },
 );
 
-//!PATCH Recipe by ID - Verification
+//!PATCH Recipe to  verification
 //http://localhost:7777/api/recipes/:id
 router.patch(
   "/:id",
@@ -400,25 +390,120 @@ router.patch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.userId) {
-        return next({ status: 401, message: "User not authenticated" });
+        return next({ status: 401, message: "Błąd autoryzacji" });
       }
 
       const recipe = await Recipe.findById(req.params.id);
 
       if (!recipe) {
-        return next({ status: 404, message: "Recipe not found" });
+        return next({ status: 404, message: "Nie można znaleźć przepisu" });
       }
 
       if (recipe.author.toString() !== req.userId) {
         return next({
           status: 403,
-          message: "Not authorized to submit this recipe",
+          message: "Nie masz uprawnień",
         });
       }
 
       recipe.status = "pending";
       await recipe.save();
-      res.status(200).json({ message: "Recipe submitted for verification" });
+      res.status(200).json({ message: "Przepis wysłany do weryfikacji" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+//!PATCH Note to recipe
+//http://localhost:7777/api/recipes/note/:id
+router.patch(
+  "note/:id",
+  checkToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { value } = req.body;
+      const recipe = await Recipe.findById(req.params.id);
+
+      if (!recipe)
+        return next({ status: 404, message: "Nie można znaleźć przepisu" });
+      if (recipe.author.toString() === req.userId) {
+        return next({
+          status: 403,
+          message: "Nie możesz oceniać własnego przepisu",
+        });
+      }
+
+      const existingNote = recipe.note?.find(
+        (n) => n.author.toString() === req.userId,
+      );
+      if (existingNote) {
+        return next({ status: 400, message: "Już oceniłeś ten przepis" });
+      }
+
+      recipe.note?.push({
+        value: Number(value),
+        author: new Types.ObjectId(req.userId!),
+      });
+
+      await recipe.save();
+      res.status(200).json({ message: "Ocena została dodana" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+//!PATCH Comment to verification
+//http://localhost:7777/api/recipes/comment/:id
+router.patch(
+  "/comment/:id",
+  checkToken,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { text } = req.body;
+      if (!text || text.length < 3)
+        return next({ status: 400, message: "Komentarz jest za krótki" });
+
+      const recipe = await Recipe.findById(req.params.id);
+      if (!recipe)
+        return next({ status: 404, message: "Nie można znaleźć przepisu" });
+
+      recipe.comments?.push({
+        text,
+        author: new Types.ObjectId(req.userId!),
+        verified: false,
+        createdAt: new Date(),
+      });
+
+      await recipe.save();
+      res
+        .status(200)
+        .json({ message: "Komentarz czeka na weryfikację przez admina" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+//?PATCH Admin not verified comments[admin]
+//http://localhost:7777/api/recipes/admin/quick-edit/:id?user=ADMIN_USER&pass=ADMIN_PASSWORD
+router.patch(
+  "/admin/comment-approve/:recipeId/:commentId",
+  async (req, res, next) => {
+    try {
+      const { user, pass } = req.query;
+      if (
+        user !== process.env.ADMIN_USER ||
+        pass !== process.env.ADMIN_PASSWORD
+      )
+        return res.sendStatus(401);
+
+      await Recipe.updateOne(
+        { _id: req.params.recipeId, "comments._id": req.params.commentId },
+        { $set: { "comments.$.verified": true } },
+      );
+      res.status(200).json({ message: "Komentarz zatwierdzony" });
     } catch (error) {
       next(error);
     }
@@ -436,7 +521,7 @@ router.patch(
         user !== process.env.ADMIN_USER ||
         pass !== process.env.ADMIN_PASSWORD
       ) {
-        return res.status(401).json({ message: "Błąd autoryzacji" });
+        return res.status(401).json({ message: "Błąd autoryzacji admina" });
       }
 
       const updated = await Recipe.findByIdAndUpdate(
@@ -513,12 +598,46 @@ router.delete(
         });
       }
 
+      if (recipe.imageUrl) {
+        try {
+          const urlParts = recipe.imageUrl.split("/");
+          const key = `${urlParts[urlParts.length - 2]}/${urlParts[urlParts.length - 1]}`;
+          await deleteFileFromS3(key);
+        } catch (err) {
+          console.error("Błąd S3 podczas kawania przepisu:", err);
+        }
+      }
+
       await Recipe.findByIdAndDelete(req.params.id);
 
       await UserModel.findByIdAndUpdate(req.userId, {
         $pull: { recipes_added: req.params.id },
       });
-      res.status(200).json({ message: "Recipe deleted successfully" });
+      res.status(200).json({ message: "Przepis usuniety" });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+//?DELETE Comment by ID [admin]
+//http://localhost:7777/api/recipes/admin/comment-delete/:recipeId/:commentId
+router.delete(
+  "/admin/comment-delete/:recipeId/:commentId",
+  async (req, res, next) => {
+    try {
+      const { user, pass } = req.query;
+      if (
+        user !== process.env.ADMIN_USER ||
+        pass !== process.env.ADMIN_PASSWORD
+      )
+        return res.sendStatus(401);
+
+      await Recipe.updateOne(
+        { _id: req.params.recipeId },
+        { $pull: { comments: { _id: req.params.commentId } } },
+      );
+      res.status(200).json({ message: "Komentarz usunięty" });
     } catch (error) {
       next(error);
     }
@@ -526,6 +645,3 @@ router.delete(
 );
 
 export default router;
-function deleteFileFromS3(oldKey: string) {
-  throw new Error("Function not implemented.");
-}

@@ -16,6 +16,7 @@ import LoginFirst from "@/components/loginFirst";
 import Colors from "@/constants/Colors";
 import { format, isSameDay } from "date-fns";
 import { pl } from "date-fns/locale";
+import { useThemeStore } from "@/store/useThemeStore";
 
 const CALENDAR_STORAGE_KEY = "user_calendar_data";
 const SHOPPING_LIST_KEY = "shopping_list_data";
@@ -29,6 +30,7 @@ export default function ShoppingList() {
 
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
+  const { primaryColor } = useThemeStore();
 
   // 1. Czyszczenie staroci i wczytaj nowości z AsyncStorage przy starcie
   useEffect(() => {
@@ -159,7 +161,8 @@ export default function ShoppingList() {
           );
 
           const stableId =
-            existing?._id || `${mealId}-${nameLower}`.replace(/\s+/g, "-");
+            existing?._id ||
+            `${meal._id}-${nameLower}-${Math.random().toString(36).substr(2, 5)}`;
 
           newList.push({
             _id: stableId,
@@ -320,21 +323,28 @@ export default function ShoppingList() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: theme.text }]}>Lista zakupów</Text>
         <TouchableOpacity
-          style={styles.generateBtn}
+          style={[styles.generateBtn, { backgroundColor: primaryColor }]}
           onPress={generateFromPlaner}
           disabled={isGenerating}
         >
           {isGenerating ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.generateBtnText}>Aktualizuj</Text>
+            <Text
+              style={[
+                styles.generateBtnText,
+                { backgroundColor: primaryColor },
+              ]}
+            >
+              Aktualizuj
+            </Text>
           )}
         </TouchableOpacity>
       </View>
       {sections && sections.length > 0 ? (
         <SectionList
           sections={sections}
-          keyExtractor={(item) => item._id}
+          keyExtractor={(item, index) => item._id?.toString() + index}
           renderItem={renderItem}
           renderSectionHeader={({ section: { title } }) => (
             <View
@@ -343,7 +353,7 @@ export default function ShoppingList() {
                 { backgroundColor: theme.background },
               ]}
             >
-              <Text style={[styles.sectionHeaderText, { color: "#FF6347" }]}>
+              <Text style={[styles.sectionHeaderText, { color: primaryColor }]}>
                 {title}
               </Text>
             </View>
@@ -371,8 +381,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
   },
-  title: { fontSize: 24, fontWeight: "bold" },
-  generateBtn: { backgroundColor: "#FF6347", padding: 10, borderRadius: 20 },
+  title: { fontSize: 28, fontWeight: "bold" },
+  generateBtn: { padding: 10, borderRadius: 20 },
   generateBtnText: { color: "#fff", fontWeight: "600" },
   listContent: { paddingHorizontal: 15 },
   sectionHeader: { paddingVertical: 10, marginTop: 10 },
@@ -380,6 +390,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     textTransform: "uppercase",
+    textShadowColor: "rgba(0, 0, 0, 0.6)",
+    textShadowOffset: { width: 0, height: 5 },
+    textShadowRadius: 30,
   },
   itemRow: {
     flexDirection: "row",
