@@ -41,14 +41,20 @@ export const RecipeValidationSchema = z.object({
       }),
     )
     .min(2, "Przepis musi mieć min. 2  składniki"),
-  instructions: z.string().min(10, "Instrukcja misi mieć min. 10 znaków"),
+  instructions: z.string().min(10, "Instrukcja musi mieć min. 10 znaków"),
   status: z.enum(["private", "pending", "public"]).optional(),
   imageUrl: z.string().url("Niedozwolony format").optional(),
   dish_type: z.array(z.enum(DISHES)).min(1, "Zaznacz min. 1 rodzaj dania"),
   diet_type: z.array(z.string()).optional(),
   cuisine: z.string().optional(),
-  comments: z.array(z.string()).optional(),
-  note: z.array(z.number().min(1, "Min 1").max(5, "Max 5")).optional(),
+  note: z
+    .array(
+      z.object({
+        value: z.number().min(1).max(5),
+        author: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export interface IRecipe extends Document {
@@ -65,8 +71,16 @@ export interface IRecipe extends Document {
   dish_type: (typeof DISHES)[number][];
   diet_type?: string[];
   cuisine?: string;
-  comments?: string[];
-  note?: number[];
+  comments?: {
+    text: string;
+    author: Types.ObjectId;
+    verified: boolean;
+    createdAt: Date;
+  }[];
+  note?: {
+    value: number;
+    author: Types.ObjectId;
+  }[];
   createdAt: Date;
 }
 
@@ -96,8 +110,20 @@ const recipeSchema = new Schema<IRecipe>(
     },
     diet_type: { type: [String], default: [] },
     cuisine: { type: String, default: "" },
-    comments: { type: [String], default: [] },
-    note: { type: [Number], default: [] },
+    comments: [
+      {
+        text: { type: String },
+        author: { type: Schema.Types.ObjectId },
+        verified: { type: Boolean, default: false },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    note: [
+      {
+        value: { type: Number },
+        author: { type: Schema.Types.ObjectId },
+      },
+    ],
   },
   { timestamps: true },
 );
