@@ -74,6 +74,7 @@ export interface IRecipe extends Document {
   comments?: {
     text: string;
     author: Types.ObjectId;
+    authorName: string;
     verified: boolean;
     createdAt: Date;
   }[];
@@ -113,7 +114,8 @@ const recipeSchema = new Schema<IRecipe>(
     comments: [
       {
         text: { type: String },
-        author: { type: Schema.Types.ObjectId },
+        author: { type: Schema.Types.ObjectId, ref: "User" },
+        authorName: { type: String },
         verified: { type: Boolean, default: false },
         createdAt: { type: Date, default: Date.now },
       },

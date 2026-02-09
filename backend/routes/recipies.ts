@@ -118,7 +118,7 @@ router.get(
 
       const recipesWithPendingComments = await Recipe.find({
         "comments.verified": false,
-      }).populate("comments.author", "name");
+      });
 
       const html = `
         <!DOCTYPE html>
@@ -181,8 +181,7 @@ router.get(
                       ?.filter((c) => !c.verified)
                       .map((c) => {
                         const commentId = (c as any)._id.toString();
-                        const authorName =
-                          (c.author as any)?.name || "Użytkownik";
+                        const authorName = c.authorName || "Użytkownik";
 
                         return `
                          <div class="comment-row" id="comment-${commentId}">
@@ -418,7 +417,7 @@ router.patch(
 //!PATCH Note to recipe
 //http://localhost:7777/api/recipes/note/:id
 router.patch(
-  "note/:id",
+  "/note/:id",
   checkToken,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -469,9 +468,14 @@ router.patch(
       if (!recipe)
         return next({ status: 404, message: "Nie można znaleźć przepisu" });
 
+      const user = await UserModel.findById(req.userId);
+      if (!user)
+        return next({ status: 404, message: "Użytkownik nie istnieje" });
+
       recipe.comments?.push({
         text,
         author: new Types.ObjectId(req.userId!),
+        authorName: user.name,
         verified: false,
         createdAt: new Date(),
       });
