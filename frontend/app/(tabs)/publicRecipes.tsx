@@ -159,8 +159,10 @@ export default function PublicRecipesScreen() {
   const renderRecipeItem = ({ item }: { item: any }) => {
     const avgNote = item.note?.length
       ? (
-          item.note.reduce((a: number, b: number) => a + b, 0) /
-          item.note.length
+          item.note.reduce(
+            (acc: number, curr: any) => acc + (curr.value || 0),
+            0,
+          ) / item.note.length
         ).toFixed(1)
       : "0.0";
 
@@ -208,7 +210,7 @@ export default function PublicRecipesScreen() {
               </View>
 
               {/* TYPY DAŃ (z mapowania, ograniczone do 2 dla czytelności) */}
-              {item.dish_type?.slice(0, 2).map((d: any, index: number) => (
+              {item.dish_type?.map((d: any, index: number) => (
                 <View
                   key={`dish-${index}`}
                   style={[
@@ -258,15 +260,15 @@ export default function PublicRecipesScreen() {
             style={[styles.searchInput, { color: theme.text }]}
             value={search}
             onChangeText={setSearch}
+            onPress={() => {
+              isMenuOpen && setIsMenuOpen(!isMenuOpen);
+            }}
           />
         </View>
         <TouchableOpacity
           style={[
-            [styles.menuToggle, { borderColor: primaryColor }],
-            isMenuOpen && [
-              styles.activeToggle,
-              { backgroundColor: primaryColor },
-            ],
+            [styles.menuToggle, { backgroundColor: theme.card }],
+            isMenuOpen && [{ backgroundColor: primaryColor }],
           ]}
           onPress={toggleMenu}
         >
@@ -504,14 +506,11 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 15,
-    backgroundColor: "#fff",
+    backgroundColor: "#666",
     justifyContent: "center",
     alignItems: "center",
     elevation: 3,
-    borderWidth: 1,
-    borderColor: "#FF6347",
   },
-  activeToggle: { backgroundColor: "#FF6347" },
   filterMenu: {
     marginHorizontal: 20,
     padding: 15,

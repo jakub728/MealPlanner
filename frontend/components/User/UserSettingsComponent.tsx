@@ -77,7 +77,7 @@ const UserSettingsComponent: React.FC<UserSettingsProps> = ({ onBack }) => {
         >
           <Ionicons name="log-out-outline" size={22} color={primaryColor} />
           <Text style={[styles.logoutText, { color: primaryColor }]}>
-            Wyloguj się z konta
+            Wyloguj
           </Text>
         </TouchableOpacity>
       </View>

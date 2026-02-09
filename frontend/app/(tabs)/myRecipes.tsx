@@ -38,11 +38,11 @@ type SortOption = "najnowsze" | "najlepsze" | "a-z";
 const getStatusConfig = (status: string) => {
   switch (status) {
     case "public":
-      return { icon: "earth-outline", color: "#4CAF50", label: "Publiczny" };
+      return { icon: "earth", color: "#4CAF50", label: "Publiczny" };
     case "pending":
-      return { icon: "time-outline", color: "#FF9800", label: "Oczekujący" };
+      return { icon: "time", color: "#FF9800", label: "Oczekujący" };
     default:
-      return { icon: "lock-closed-outline", color: "#fff", label: "Prywatny" };
+      return { icon: "lock-closed", color: "#fff", label: "Prywatny" };
   }
 };
 
@@ -140,11 +140,12 @@ export default function MyRecipesScreen() {
     }
 
     return list.sort((a: any, b: any) => {
-      if (sortBy === "a-z") return a.title.localeCompare(b.title);
-      return (
-        new Date(b.createdAt || 0).getTime() -
-        new Date(a.createdAt || 0).getTime()
-      );
+      // if (sortBy === "a-z")
+      return a.title.localeCompare(b.title);
+      // return (
+      //   new Date(b.createdAt || 0).getTime() -
+      //   new Date(a.createdAt || 0).getTime()
+      // );
     });
   }, [
     activeTab,
@@ -217,6 +218,9 @@ export default function MyRecipesScreen() {
               style={[styles.searchInput, { color: theme.text }]}
               value={search}
               onChangeText={setSearch}
+              onPress={() => {
+                isMenuOpen && setIsMenuOpen(!isMenuOpen);
+              }}
             />
           </View>
           <TouchableOpacity
@@ -478,80 +482,53 @@ export default function MyRecipesScreen() {
               style={styles.recipeCard}
               imageStyle={styles.cardImage}
             >
-              {/* OPINIE I NOTA */}
-              <View style={styles.topRow}>
-                <View style={styles.ratingBadge}>
-                  <Ionicons name="star" size={12} color="#FFD700" />
-                  <Text style={styles.ratingText}>
-                    {item.note && item.note.length > 0
-                      ? (
-                          item.note.reduce((a: number, b: number) => a + b, 0) /
-                          item.note.length
-                        ).toFixed(1)
-                      : "0.0"}
-                  </Text>
+              {/* LEWA GÓRA: OCENA */}
+              {item.status === "public" && (
+                <View style={styles.topRow}>
+                  <View style={styles.ratingBadge}>
+                    <Ionicons name="star" size={12} color="#FFD700" />
+                    <Text style={styles.ratingText}>
+                      {item.note && item.note.length > 0
+                        ? (
+                            item.note.reduce(
+                              (acc: number, curr: any) => acc + curr.value,
+                              0,
+                            ) / item.note.length
+                          ).toFixed(1)
+                        : "0.0"}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              )}
 
-              {/* POLUBIONO & UDOSTEPNIONO */}
-              <View style={styles.statusIconsContainer}>
-                {userFull?.recipes_shared?.includes(item._id) && (
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: "rgba(76, 175, 80, 0.85)" },
-                    ]}
-                  >
-                    <Ionicons name="share-social" size={12} color="#fff" />
-                    <Text style={styles.statusBadgeText}>Udostępniono</Text>
+              {/* PRAWA GÓRA: STATUSY (IKONY) */}
+              <View style={styles.rightTopIcons}>
+                {item.author._id === user?.id && (
+                  <View style={styles.statusBadge}>
+                    <Ionicons
+                      name={getStatusConfig(item.status).icon as any}
+                      size={18}
+                      color={getStatusConfig(item.status).color}
+                    />
                   </View>
                 )}
                 {userFull?.recipes_liked?.includes(item._id) && (
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: "rgba(255, 99, 71, 0.85)" },
-                    ]}
-                  >
-                    <Ionicons name="heart" size={12} color="#fff" />
-                    <Text style={styles.statusBadgeText}>Lubisz</Text>
+                  <View style={styles.statusBadge}>
+                    <Ionicons name="heart" size={18} color="#FF5252" />
                   </View>
                 )}
               </View>
+
+              {/* DÓŁ: TYTUŁ I TAGI */}
               <LinearGradient
                 colors={["transparent", "rgba(0,0,0,0.85)"]}
                 style={styles.gradient}
               >
-                {/* NAGŁÓWEK KARTY: Tytuł + Status */}
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 6,
-                  }}
-                >
-                  <Text style={styles.recipeTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {item.status !== "public" && (
-                    <Ionicons
-                      name={getStatusConfig(item.status).icon as any}
-                      size={18}
-                      color="#fff"
-                      style={{ opacity: 0.8 }}
-                    />
-                  )}
-                </View>
+                <Text style={styles.recipeTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
 
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    flexWrap: "wrap",
-                  }}
-                >
+                <View style={styles.tagsContainer}>
                   {/* BADGE KUCHNI */}
                   <View
                     style={[
@@ -577,28 +554,28 @@ export default function MyRecipesScreen() {
                       ]}
                     >
                       <Text style={styles.cuisineBadgeText}>
-                        {(typeof d === "string" ? d : d.name)
-                          ?.slice(0, 1)
+                        {((typeof d === "string" ? d : d.name) || "")
+                          .slice(0, 1)
                           .toUpperCase() +
-                          (typeof d === "string" ? d : d.name)?.slice(1)}
+                          (typeof d === "string" ? d : d.name || "").slice(1)}
                       </Text>
                     </View>
                   ))}
 
-                  {/* TYPY DIETY */}
+                  {/* TYPY Diet */}
                   {item.diet_type?.map((d: any, index: number) => (
                     <View
-                      key={`diet-${index}`}
+                      key={`diet-${index}`} // Zmieniony klucz na unikalny
                       style={[
                         styles.cuisineBadge,
-                        { backgroundColor: "rgba(76, 175, 79, 0.35)" },
+                        styles.dietBadge, // Dodany dedykowany styl dla diet
                       ]}
                     >
                       <Text style={styles.cuisineBadgeText}>
-                        {(typeof d === "string" ? d : d.name)
-                          ?.slice(0, 1)
+                        {((typeof d === "string" ? d : d.name) || "")
+                          .slice(0, 1)
                           .toUpperCase() +
-                          (typeof d === "string" ? d : d.name)?.slice(1)}
+                          (typeof d === "string" ? d : d.name || "").slice(1)}
                       </Text>
                     </View>
                   ))}
@@ -738,7 +715,7 @@ const styles = StyleSheet.create({
   cuisineBadgeText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 8,
+    fontSize: 9, // Nieco większy font (było 8)
     textTransform: "uppercase",
   },
   tag: {
@@ -771,23 +748,43 @@ const styles = StyleSheet.create({
     gap: 6,
     zIndex: 2,
   },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
   statusBadgeText: {
     color: "#fff",
     fontSize: 9,
     fontWeight: "bold",
     textTransform: "uppercase",
+  },
+  rightTopIcons: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    flexDirection: "row", // Ikony obok siebie
+    gap: 8,
+    zIndex: 10,
+  },
+  statusBadge: {
+    backgroundColor: "rgba(0, 0, 0, 0.6)", // Nieco ciemniejsze tło dla lepszej widoczności
+    padding: 6,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    // Subtelny cień
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  tagsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexWrap: "wrap",
+    marginTop: 6,
+  },
+  dietBadge: {
+    backgroundColor: "rgba(76, 175, 80, 0.4)", // Zielone tło dla diet (półprzezroczyste)
+    borderWidth: 1,
+    borderColor: "rgba(76, 175, 80, 0.6)",
   },
 });
