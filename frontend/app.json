@@ -2,7 +2,7 @@
   "expo": {
     "name": "Onion Meals",
     "slug": "onion-meal-planner",
-    "version": "0.9.5",
+    "version": "0.9.9",
     "orientation": "portrait",
     "icon": "./assets/images/onion-meal-planner-icon.png",
     "scheme": "frontend",

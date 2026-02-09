@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,9 @@ import {
   TouchableOpacity,
   Alert,
   useColorScheme,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, Stack } from "expo-router";
@@ -23,15 +26,30 @@ import { DISHES, CUISINES, DIET_TYPES } from "@/constants/Filters";
 import { useThemeStore } from "@/store/useThemeStore";
 
 export default function RecipeDetailScreen() {
+  const scrollRef = useRef<ScrollView>(null);
   const { id } = useLocalSearchParams();
   const { user, token } = useAuthStore();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [commentText, setCommentText] = useState("");
+  const [rating, setRating] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   const colorScheme = useColorScheme() ?? "light";
   const theme = Colors[colorScheme];
   const queryClient = useQueryClient();
   const { primaryColor } = useThemeStore();
+
+  const getStatusConfig = (status: string) => {
+    switch (status) {
+      case "public":
+        return { icon: "earth", color: "#4CAF50", label: "Publiczny" };
+      case "pending":
+        return { icon: "time", color: "#FF9800", label: "Oczekujący" };
+      default:
+        return { icon: "lock-closed", color: "#fff", label: "Prywatny" };
+    }
+  };
 
   const { data: recipe, isLoading } = useQuery({
     queryKey: ["recipe", id],
@@ -73,6 +91,30 @@ export default function RecipeDetailScreen() {
       console.error("Błąd podczas polubienia przepisu:", error);
     },
   });
+  const commentMutation = useMutation({
+    mutationFn: (text: string) => api.patch(`/recipes/comment/${id}`, { text }),
+    onSuccess: () => {
+      setCommentText("");
+      Alert.alert("Sukces", "Komentarz czeka na weryfikację!");
+      queryClient.invalidateQueries({ queryKey: ["recipe", id] });
+    },
+    onError: (error: any) =>
+      Alert.alert("Błąd", error.response?.data?.message || "Błąd sieci"),
+  });
+
+  // Mutacja Oceny
+  const ratingMutation = useMutation({
+    mutationFn: (value: number) => api.patch(`/recipes/note/${id}`, { value }),
+    onSuccess: () => {
+      Alert.alert("Sukces", "Dziękujemy za ocenę!");
+      queryClient.invalidateQueries({ queryKey: ["recipe", id] });
+    },
+    onError: (error: any) =>
+      Alert.alert(
+        "Błąd",
+        error.response?.data?.message || "Już oceniłeś ten przepis",
+      ),
+  });
 
   if (isLoading)
     return <ActivityIndicator style={{ flex: 1 }} color={theme.tint} />;
@@ -82,15 +124,23 @@ export default function RecipeDetailScreen() {
   const isPublic = recipe?.status === "public";
   const isPrivate = recipe?.status === "private";
   const isLiked = userFull?.recipes_liked?.includes(id as string);
+  const isNoted = recipe.note.some(
+    (n: any) => n.author.toString() === user?.id,
+  );
+  const myNote = recipe.note.find((n: any) => {
+    const authorId = n.author.toString();
+    return authorId === user?.id;
+  });
 
   const getRatingData = () => {
     const notes = recipe?.note || [];
     const count = notes.length;
     const average =
       count > 0
-        ? notes.reduce((acc: number, curr: number) => acc + curr, 0) / count
+        ? notes.reduce((acc: number, curr: any) => acc + (curr.value || 0), 0) /
+          count
         : 0;
-    return { average, count };
+    return { average: Number(average.toFixed(1)), count };
   };
 
   const { average, count } = getRatingData();
@@ -152,183 +202,175 @@ export default function RecipeDetailScreen() {
         }}
       />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
       >
-        {/* NAGŁÓWEK ZDJĘCIE */}
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: recipe.imageUrl }} style={styles.headerImage} />
-          <View style={styles.imageOverlay} />
-          <View style={styles.imageContent}>
-            <View style={styles.badgeRow}>
-              {recipe.cuisine && (
-                <View
-                  style={[
-                    styles.cuisineBadge,
-                    { backgroundColor: primaryColor },
-                  ]}
-                >
-                  <Text style={{ fontSize: 14 }}>{cuisineInfo?.flag} </Text>
-                  <Text style={styles.cuisineBadgeText}>{recipe.cuisine}</Text>
-                </View>
-              )}
-              {isOwner && (
-                <Text
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: "rgba(0,0,0,0.4)",
-                      borderColor: theme.border,
-                    },
-                  ]}
-                >
-                  {recipe.status === "public" ? "Publiczny" : "Prywatny"}
-                </Text>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* GŁÓWNA TREŚĆ */}
-        <View
-          style={[styles.mainContent, { backgroundColor: theme.background }]}
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
         >
-          <View style={styles.headerSection}>
-            <Text style={[styles.title, { color: theme.text }]}>
-              {recipe.title}
-            </Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="person-outline" size={14} color={theme.subText} />
-              <Text style={[styles.authorText, { color: theme.subText }]}>
-                Autor: {recipe.author?.name || "Anonim"}
-              </Text>
-            </View>
+          {/* NAGŁÓWEK ZDJĘCIE */}
+          <View style={styles.imageContainer}>
+            <Image
+              source={{ uri: recipe.imageUrl }}
+              style={styles.headerImage}
+            />
+            <View style={styles.imageOverlay} />
+            <View style={styles.imageContent}>
+              <View style={styles.badgeRow}>
+                {/* BADGE KUCHNI */}
+                {recipe.cuisine && (
+                  <View
+                    style={[
+                      styles.cuisineBadge,
+                      { backgroundColor: primaryColor },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 14 }}>{cuisineInfo?.flag} </Text>
+                    <Text style={styles.cuisineBadgeText}>
+                      {recipe.cuisine}
+                    </Text>
+                  </View>
+                )}
 
-            {isPublic && (
+                {/* STATUS PRZEPISU (WIDOCZNY DLA WŁAŚCICIELA) */}
+                {isOwner && (
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: "rgba(0, 0, 0, 0.6)" }, // Spójne tło
+                    ]}
+                  >
+                    <Ionicons
+                      name={getStatusConfig(recipe.status).icon as any}
+                      size={16}
+                      color={getStatusConfig(recipe.status).color}
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text style={[styles.statusBadgeText, { color: "#fff" }]}>
+                      {getStatusConfig(recipe.status).label}
+                    </Text>
+                  </View>
+                )}
+
+                {/* STATUS "LUBISZ" */}
+                {isLiked && (
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      { backgroundColor: "rgba(0, 0, 0, 0.6)" },
+                    ]}
+                  >
+                    <Ionicons
+                      name="heart"
+                      size={16}
+                      color="#FF5252"
+                      style={{ marginRight: 5 }}
+                    />
+                    <Text style={[styles.statusBadgeText, { color: "#fff" }]}>
+                      Lubisz
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {/* GŁÓWNA TREŚĆ */}
+          <View
+            style={[styles.mainContent, { backgroundColor: theme.background }]}
+          >
+            <View style={styles.headerSection}>
+              <Text style={[styles.title, { color: theme.text }]}>
+                {recipe.title}
+              </Text>
               <View style={styles.ratingRow}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  {[1, 2, 3, 4, 5].map((index) => {
-                    const fill = Math.max(
-                      0,
-                      Math.min(1, average - (index - 1)),
-                    );
-                    return (
-                      <View key={index} style={{ width: 18, height: 18 }}>
-                        <Ionicons
-                          name="star"
-                          size={18}
-                          color={colorScheme === "dark" ? "#333" : "#E0E0E0"}
-                        />
-                        <View
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: `${fill * 100}%`,
-                            overflow: "hidden",
-                          }}
-                        >
-                          <Ionicons name="star" size={18} color="#FFD700" />
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-                <Text style={[styles.ratingText, { color: theme.subText }]}>
-                  {average > 0
-                    ? `${average.toFixed(1)} (${count})`
-                    : "Brak ocen"}
+                <Ionicons
+                  name="person-outline"
+                  size={14}
+                  color={theme.subText}
+                />
+                <Text style={[styles.authorText, { color: theme.subText }]}>
+                  Autor: {recipe.author?.name || "Anonim"}
                 </Text>
               </View>
-            )}
-          </View>
 
-          {/* TAGI */}
-          <View style={styles.tagContainer}>
-            {recipe.dish_type?.map((type: string) => (
-              <View
-                key={type}
-                style={[
-                  styles.tag,
-                  {
-                    backgroundColor: theme.card,
-                    borderColor: theme.border,
-                    borderWidth: 1,
-                  },
-                ]}
-              >
-                {renderTagWithIcon(type, "dish")}
-              </View>
-            ))}
-            {recipe.diet_type?.map((diet: string) => (
-              <View
-                key={diet}
-                style={[
-                  styles.tag,
-                  {
-                    backgroundColor:
-                      colorScheme === "dark" ? "#1B2E1D" : "#E8F5E9",
-                  },
-                ]}
-              >
-                {renderTagWithIcon(diet, "diet")}
-              </View>
-            ))}
-          </View>
-
-          {/* SEKCJA SKŁADNIKI */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons
-                name="restaurant-outline"
-                size={20}
-                color={primaryColor}
-              />
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Składniki
-              </Text>
+              {isPublic && (
+                <View style={styles.ratingRow}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    {[1, 2, 3, 4, 5].map((index) => {
+                      const fill = Math.max(
+                        0,
+                        Math.min(1, average - (index - 1)),
+                      );
+                      return (
+                        <View key={index} style={{ width: 18, height: 18 }}>
+                          <Ionicons
+                            name="star"
+                            size={18}
+                            color={colorScheme === "dark" ? "#333" : "#E0E0E0"}
+                          />
+                          <View
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: `${fill * 100}%`,
+                              overflow: "hidden",
+                            }}
+                          >
+                            <Ionicons name="star" size={18} color="#FFD700" />
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  <Text style={[styles.ratingText, { color: theme.subText }]}>
+                    {average > 0
+                      ? `${average.toFixed(1)} (${count})`
+                      : "Brak ocen"}
+                  </Text>
+                </View>
+              )}
             </View>
-            <View style={[styles.card, { backgroundColor: theme.card }]}>
-              {recipe.ingredients?.map((item: any, index: number) => (
+
+            {/* --- TAGI --- */}
+            <View style={styles.tagContainer}>
+              {recipe.dish_type?.map((type: string) => (
                 <View
-                  key={index}
+                  key={type}
                   style={[
-                    styles.ingredientRow,
-                    index !== recipe.ingredients.length - 1 && {
-                      borderBottomWidth: 1,
-                      borderBottomColor: theme.border,
+                    styles.tag,
+                    {
+                      backgroundColor: theme.card,
+                      borderColor: theme.border,
+                      borderWidth: 1,
                     },
                   ]}
                 >
-                  <Text style={[styles.ingredientText, { color: theme.text }]}>
-                    {item.name}
-                  </Text>
-                  <Text style={[styles.amountText, { color: primaryColor }]}>
-                    {item.amount} {item.unit}
-                  </Text>
+                  {renderTagWithIcon(type, "dish")}
+                </View>
+              ))}
+              {recipe.diet_type?.map((diet: string) => (
+                <View
+                  key={diet}
+                  style={[
+                    styles.tag,
+                    {
+                      backgroundColor:
+                        colorScheme === "dark" ? "#1B2E1D" : "#E8F5E9",
+                    },
+                  ]}
+                >
+                  {renderTagWithIcon(diet, "diet")}
                 </View>
               ))}
             </View>
-          </View>
 
-          {/* SEKCJA PRZYGOTOWANIE */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="list-outline" size={20} color={primaryColor} />
-              <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                Przygotowanie
-              </Text>
-            </View>
-            <View style={[styles.card, { backgroundColor: theme.card }]}>
-              <Text style={[styles.instructionsText, { color: theme.text }]}>
-                {recipe.instructions}
-              </Text>
-            </View>
-          </View>
-
-          {/* KOMENTARZE */}
-          {isPublic && (
+            {/* --- SEKCJA SKŁADNIKI ---  */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Ionicons
@@ -336,26 +378,222 @@ export default function RecipeDetailScreen() {
                   size={20}
                   color={primaryColor}
                 />
-
                 <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                  Komentarze
+                  Składniki
                 </Text>
               </View>
-              <Text style={{ color: theme.subText, fontStyle: "italic" }}>
-                {isOwner
-                  ? "Nie możesz dodać komentarza do swojego przepisu"
-                  : "Brak komentarzy. Bądź pierwszy!"}
-              </Text>
+              <View style={[styles.card, { backgroundColor: theme.card }]}>
+                {recipe.ingredients?.map((item: any, index: number) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.ingredientRow,
+                      index !== recipe.ingredients.length - 1 && {
+                        borderBottomWidth: 1,
+                        borderBottomColor: theme.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.ingredientText, { color: theme.text }]}
+                    >
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.amountText, { color: primaryColor }]}>
+                      {item.amount} {item.unit}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          )}
-        </View>
-      </ScrollView>
 
+            {/* --- SEKCJA PRZYGOTOWANIE --- */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="list-outline" size={20} color={primaryColor} />
+                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                  Przygotowanie
+                </Text>
+              </View>
+              <View style={[styles.card, { backgroundColor: theme.card }]}>
+                <Text style={[styles.instructionsText, { color: theme.text }]}>
+                  {recipe.instructions}
+                </Text>
+              </View>
+            </View>
+
+            {isPublic && (
+              <View style={styles.section}>
+                {/* --- SEKCJA OCEN (GWIAZDKI) --- */}
+                {!isOwner && (
+                  <View style={styles.section}>
+                    {isNoted ? (
+                      <View style={styles.sectionHeader}>
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color={primaryColor}
+                        />
+
+                        <Text
+                          style={[styles.sectionTitle, { color: theme.text }]}
+                        >
+                          Oceniono na
+                        </Text>
+                        <View
+                          style={{ flexDirection: "row", marginVertical: 10 }}
+                        >
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <TouchableOpacity
+                              key={star}
+                              onPress={() => ratingMutation.mutate(star)}
+                            >
+                              <Ionicons
+                                name={
+                                  star <= (myNote?.value || 0)
+                                    ? "star"
+                                    : "star-outline"
+                                }
+                                size={32}
+                                color="#FFD700"
+                              />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.sectionHeader}>
+                        <Ionicons
+                          name="pencil-outline"
+                          size={20}
+                          color={primaryColor}
+                        />
+
+                        <Text
+                          style={[styles.sectionTitle, { color: theme.text }]}
+                        >
+                          Twoja ocena
+                        </Text>
+                        <View
+                          style={{ flexDirection: "row", marginVertical: 10 }}
+                        >
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <TouchableOpacity
+                              key={star}
+                              onPress={() => ratingMutation.mutate(star)}
+                            >
+                              <Ionicons
+                                name={star <= rating ? "star" : "star-outline"}
+                                size={32}
+                                color="#FFD700"
+                              />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* --- SEKCJA KOMENTARZY --- */}
+                <View style={styles.sectionHeader}>
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={20}
+                    color={primaryColor}
+                  />
+                  <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                    Komentarze
+                  </Text>
+                </View>
+
+                {/* Formularz dodawania */}
+                {!isOwner && token && (
+                  <View style={{ marginBottom: 20 }}>
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          color: theme.text,
+                          height: 80,
+                          backgroundColor: "white",
+                        },
+                      ]}
+                      placeholder="Twoja opinia..."
+                      placeholderTextColor="#888"
+                      multiline
+                      value={commentText}
+                      onChangeText={setCommentText}
+                      onFocus={() => {
+                        setTimeout(() => {
+                          scrollRef.current?.scrollToEnd({ animated: true });
+                        }, 100);
+                      }}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.button,
+                        {
+                          opacity: submitting ? 0.6 : 1,
+                          backgroundColor: primaryColor,
+                        },
+                      ]}
+                      onPress={() => commentMutation.mutate(commentText)}
+                      disabled={submitting}
+                    >
+                      <Text style={styles.buttonText}>Dodaj komentarz</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Lista komentarzy */}
+                {recipe.comments.length > 0 ? (
+                  recipe.comments
+                    .filter((c: any) => c.verified)
+                    .map((comment: any, index: number) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.card,
+                          { backgroundColor: theme.card, marginBottom: 10 },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: primaryColor,
+                            fontWeight: "bold",
+                            fontSize: 12,
+                          }}
+                        >
+                          {comment.authorName}
+                        </Text>
+                        <Text
+                          style={{ color: "#888", fontSize: 10, marginTop: 5 }}
+                        >
+                          {new Date(comment.createdAt).toLocaleDateString()}
+                        </Text>
+                        <Text
+                          style={[styles.commentText, { color: theme.text }]}
+                        >
+                          {comment.text}
+                        </Text>
+                      </View>
+                    ))
+                ) : (
+                  <Text style={{ color: theme.subText, fontStyle: "italic" }}>
+                    Brak komentarzy
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
       {/* FAB - PRZYCISKI AKCJI */}
       <View style={[styles.fabContainer, { bottom: insets.bottom + 20 }]}>
-        {!isOwner && isPublic && (
+        {!isOwner && isPublic && !isLiked && (
           <TouchableOpacity
-            style={[styles.likeFab, { backgroundColor: theme.card }]}
+            style={[styles.likeFab, { backgroundColor: primaryColor }]}
             onPress={() => likeMutation.mutate()}
           >
             <View
@@ -372,20 +610,9 @@ export default function RecipeDetailScreen() {
                 },
               ]}
             >
-              <Ionicons
-                name={isLiked ? "heart" : "heart-outline"}
-                size={24}
-                color={isLiked ? "#FF6347" : theme.tint}
-              />
+              <Ionicons name={"heart"} size={24} color={primaryColor} />
             </View>
-            <Text
-              style={[
-                styles.likeText,
-                { color: isLiked ? "#FF6347" : theme.text },
-              ]}
-            >
-              {isLiked ? "Polubiono" : "Polub"}
-            </Text>
+            <Text style={[styles.likeText, { color: theme.text }]}>Polub</Text>
           </TouchableOpacity>
         )}
 
@@ -395,14 +622,14 @@ export default function RecipeDetailScreen() {
               style={[
                 styles.fab,
                 styles.fabSecondary,
-                { backgroundColor: theme.card, borderColor: theme.tint },
+                { backgroundColor: theme.card, borderColor: primaryColor },
               ]}
               onPress={() =>
                 router.push({ pathname: "/editRecipes", params: { id } })
               }
             >
-              <Ionicons name="pencil-sharp" size={18} color={theme.tint} />
-              <Text style={[styles.fabText, { color: theme.tint }]}>
+              <Ionicons name="pencil-sharp" size={18} color={primaryColor} />
+              <Text style={[styles.fabText, { color: primaryColor }]}>
                 Edytuj
               </Text>
             </TouchableOpacity>
@@ -410,7 +637,7 @@ export default function RecipeDetailScreen() {
 
           {isOwner && isPrivate && (
             <TouchableOpacity
-              style={[styles.fab, { backgroundColor: theme.tint }]}
+              style={[styles.fab, { backgroundColor: primaryColor }]}
               onPress={() => publishMutation.mutate()}
             >
               <Ionicons name="globe-outline" size={18} color="#fff" />
@@ -448,12 +675,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   statusBadge: {
-    color: "#fff",
-    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
-    fontSize: 12,
-    borderWidth: 1,
+    borderRadius: 12,
+    marginLeft: 8,
   },
   mainContent: {
     marginTop: -35,
@@ -551,5 +778,39 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginLeft: 4,
     marginBottom: 6,
+  },
+  ratingContainer: {
+    alignItems: "center",
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    marginBottom: 15,
+  },
+  commentText: {
+    fontSize: 14,
+    marginTop: 5,
+    lineHeight: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 12,
+    borderRadius: 12,
+    textAlignVertical: "top", // Ważne dla multiline na Androidzie
+    marginBottom: 10,
+  },
+  button: {
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    textTransform: "uppercase",
   },
 });

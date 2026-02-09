@@ -140,43 +140,55 @@ export default function ShoppingList() {
       const rawPlannedMeals = calendarData ? JSON.parse(calendarData) : [];
       const plannedMeals = rawPlannedMeals.filter((m: any) => m.recipe);
 
-      const newList: any[] = [];
+      const aggregatedList: { [key: string]: any } = {};
 
       plannedMeals.forEach((meal: any) => {
         const mealId = meal._id || meal.id;
-        const mealDate = new Date(meal.date);
-        const TWO_WEEKS_AGO = new Date();
-        TWO_WEEKS_AGO.setDate(TWO_WEEKS_AGO.getDate() - 14);
-        if (mealDate < TWO_WEEKS_AGO) return;
+        const mealDate = format(new Date(meal.date), "yyyy-MM-dd");
 
         meal.recipe?.ingredients?.forEach((ing: any) => {
           const nameLower = ing.name.toLowerCase().trim();
+          const unitLower = ing.unit.toLowerCase().trim();
           const blackKey = `${mealId}-${nameLower}`;
 
-          if (blacklist.some((b) => b.key === blackKey)) return;
+          if (blacklist.some((b: any) => b.key === blackKey)) return;
 
-          const existing = currentList.find(
-            (c) =>
-              c.name.toLowerCase().trim() === nameLower && c.mealId === mealId,
-          );
+          const aggKey = `${mealDate}_${nameLower}_${unitLower}`;
 
-          const stableId =
-            existing?._id ||
-            `${meal._id}-${nameLower}-${Math.random().toString(36).substr(2, 5)}`;
+          if (aggregatedList[aggKey]) {
+            const currentAmount =
+              parseFloat(aggregatedList[aggKey].amount) || 0;
+            const newAmount = parseFloat(ing.amount) || 0;
+            aggregatedList[aggKey].amount = (
+              currentAmount + newAmount
+            ).toString();
 
-          newList.push({
-            _id: stableId,
-            mealId: mealId,
-            name: ing.name,
-            amount: ing.amount,
-            unit: ing.unit,
-            date: meal.date,
-            purchased: existing?.purchased || false,
-            have_at_home: existing?.have_at_home || false,
-          });
+            if (!aggregatedList[aggKey].allMealIds.includes(mealId)) {
+              aggregatedList[aggKey].allMealIds.push(mealId);
+            }
+          } else {
+            const existing = currentList.find(
+              (c) =>
+                c.name.toLowerCase().trim() === nameLower &&
+                format(new Date(c.date), "yyyy-MM-dd") === mealDate,
+            );
+
+            aggregatedList[aggKey] = {
+              _id: `${mealDate}-${nameLower}-${Math.random().toString(36).substr(2, 5)}`,
+              mealId: mealId, 
+              allMealIds: [mealId],
+              name: ing.name,
+              amount: ing.amount,
+              unit: ing.unit,
+              date: meal.date,
+              purchased: existing?.purchased || false,
+              have_at_home: existing?.have_at_home || false,
+            };
+          }
         });
       });
 
+      const newList = Object.values(aggregatedList);
       await saveLocalData(newList);
     } catch (e) {
       console.error(e);
