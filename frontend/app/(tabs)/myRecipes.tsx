@@ -128,6 +128,7 @@ export default function MyRecipesScreen() {
         ),
       );
     }
+
     if (selectedDiets.length > 0) {
       list = list.filter((r: any) =>
         r.diet_type?.some((diet: any) =>
@@ -265,13 +266,13 @@ export default function MyRecipesScreen() {
             style={styles.filterScroll}
           >
             {DISHES.map((dish) => {
-              const isActive = selectedDishes.includes(dish.label);
+              const isActive = selectedDishes.includes(dish.value);
               const IconComponent =
                 dish.type === "mat" ? MaterialCommunityIcons : Ionicons;
               return (
                 <TouchableOpacity
                   key={dish.value}
-                  onPress={() => toggleFilter(setSelectedDishes, dish.label)}
+                  onPress={() => toggleFilter(setSelectedDishes, dish.value)}
                   style={[
                     styles.chip,
                     isActive && {
