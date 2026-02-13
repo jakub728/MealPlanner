@@ -79,7 +79,7 @@ router.get(
                           <h2>4. Kontakt</h2>
                           <div class="contact">
                             Pytania dotyczące prywatności? Skontaktuj się z nami: <br>
-                            E-mail: kontakt@twojedomena.pl
+                            E-mail: kuba@satkurier.pl
                           </div>
                         </div>
                       </body>
