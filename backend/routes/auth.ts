@@ -34,6 +34,64 @@ router.get(
   },
 );
 
+//! GET Privacy Policy
+//http://localhost:7777/api/auth/privacy-policy"
+router.get(
+  "/privacy-policy",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const html = `<!DOCTYPE html>
+                      <html lang="pl">
+                      <head>
+                          <meta charset="UTF-8">
+                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                          <title>Polityka Prywatności - Onion Meals</title>
+                          <style>
+                              body { font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
+                              .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+                              h1 { color: #222; border-bottom: 2px solid #ffee00; padding-bottom: 10px; }
+                              h2 { color: #444; margin-top: 25px; }
+                              p { margin-bottom: 15px; }
+                              ul { margin-bottom: 15px; }
+                              .contact { background: #eee; padding: 15px; border-radius: 10px; font-weight: bold; }
+                          </style>
+                      </head>
+                      <body>
+                        <div class="card">
+                          <h1>Polityka Prywatności Onion Meals</h1>
+                          <p>Ostatnia aktualizacja: 13 lutego 2026 r.</p>
+
+                          <p>W <strong>Onion Meals</strong> szanujemy Twoją prywatność. Ta polityka wyjaśnia, jak przetwarzamy dane w naszej aplikacji do zarządzania przepisami.</p>
+
+                          <h2>1. Jakie dane zbieramy?</h2>
+                          <p>Zbieramy tylko informacje niezbędne do działania Twojego profilu kulinarnego:</p>
+                          <ul>
+                              <li><strong>Adres e-mail:</strong> Służy wyłącznie do logowania i odzyskiwania hasła.</li>
+                              <li><strong>Treści użytkownika:</strong> Przepisy, składniki oraz zdjęcia dań, które dodajesz do aplikacji.</li>
+                          </ul>
+
+                          <h2>2. Przechowywanie danych</h2>
+                          <p>Twoje dane są bezpiecznie przechowywane na naszych serwerach. Nie sprzedajemy ani nie udostępniamy Twoich danych osobowych firmom reklamowym.</p>
+
+                          <h2>3. Twoje Prawa (RODO)</h2>
+                          <p>Masz prawo do wglądu w swoje dane, ich poprawiania oraz całkowitego usunięcia. Możesz usunąć swoje konto wraz ze wszystkimi przepisami bezpośrednio w ustawieniach aplikacji Onion Meals.</p>
+
+                          <h2>4. Kontakt</h2>
+                          <div class="contact">
+                            Pytania dotyczące prywatności? Skontaktuj się z nami: <br>
+                            E-mail: kontakt@twojedomena.pl
+                          </div>
+                        </div>
+                      </body>
+                    </html>`;
+      res.setHeader("Content-Type", "text/html");
+      res.status(200).send(html);
+    } catch (error: any) {
+      next(error);
+    }
+  },
+);
+
 //! POST Register
 //http://localhost:7777/api/auth/register
 router.post(
